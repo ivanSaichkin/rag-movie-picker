@@ -1,0 +1,49 @@
+syntax = "proto3";
+package rag.v1;
+option go_package = "github.com/ivanSaichkin/rag-movie-picker/pkg/ragapi/rag/v1;ragv1";
+
+service RagService {
+  rpc Recommend(RecommendRequest) returns (RecommendResponse);
+  rpc GetMovie(GetMovieRequest) returns (Movie);
+  rpc GetCatalog(GetCatalogRequest) returns (Catalog);
+}
+
+message Filters {
+  repeated int64 genre_ids = 1;
+  optional int32 year_from = 2;
+  optional int32 year_to = 3;
+  optional double min_rating = 4;
+}
+message RecommendRequest {
+  string query = 1;
+  optional uint32 limit = 2;
+  Filters filters = 3;
+}
+message Genre { int64 id = 1; string name = 2; }
+message Movie {
+  int64 movie_id = 1;
+  string title = 2;
+  optional int32 year = 3;
+  repeated Genre genres = 4;
+  optional double rating = 5;
+  int64 vote_count = 6;
+  string overview = 7;
+}
+message Recommendation { Movie movie = 1; optional string reason = 2; }
+message Warning { string code = 1; string message = 2; }
+message RecommendResponse {
+  string mode = 1;
+  string strategy_used = 2;
+  repeated Recommendation items = 3;
+  repeated Warning warnings = 4;
+}
+message GetMovieRequest { int64 movie_id = 1; }
+message GetCatalogRequest {}
+message Catalog {
+  repeated Genre genres = 1;
+  uint32 movie_count = 2;
+  optional int32 year_from = 3;
+  optional int32 year_to = 4;
+  uint32 default_results = 5;
+  uint32 max_results = 6;
+}
