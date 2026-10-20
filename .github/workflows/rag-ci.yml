@@ -1,0 +1,79 @@
+name: RAG Python CI
+
+on:
+  push:
+    branches: [main, development, "ml_*"]
+    paths:
+      - "rag/**"
+      - "proto/rag/**"
+      - ".github/workflows/rag-ci.yml"
+  pull_request:
+    branches: [main, development]
+    paths:
+      - "rag/**"
+      - "proto/rag/**"
+      - ".github/workflows/rag-ci.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    shell: bash
+    working-directory: rag
+
+env:
+  HF_HUB_OFFLINE: "1"
+  RUN_MODEL_TESTS: "0"
+
+jobs:
+  lint:
+    name: Ruff
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
+        with:
+          python-version: "3.12"
+          working-directory: rag
+          enable-cache: true
+          cache-dependency-glob: uv.lock
+      - name: Install locked dependencies without model extras
+        run: uv sync --locked --group dev
+      - name: Check lint
+        run: uv run --no-sync ruff check src/movie_rag tests scripts
+      - name: Check formatting
+        run: uv run --no-sync ruff format --check src/movie_rag tests scripts
+
+  tests:
+    name: Python ${{ matrix.python }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ["3.12", "3.13"]
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
+        with:
+          python-version: ${{ matrix.python }}
+          working-directory: rag
+          enable-cache: true
+          cache-dependency-glob: uv.lock
+      - name: Install locked dependencies without model extras
+        run: uv sync --locked --group dev
+      - name: Run unit and local integration tests
+        run: uv run --no-sync pytest -q -m "not model" -o faulthandler_timeout=60
+      - name: Build distribution
+        run: uv build
