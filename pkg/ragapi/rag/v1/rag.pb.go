@@ -90,12 +90,14 @@ func (x *Filters) GetMinRating() float64 {
 }
 
 type RecommendRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Query         string                 `protobuf:"bytes,1,opt,name=query,proto3" json:"query,omitempty"`
-	Limit         *uint32                `protobuf:"varint,2,opt,name=limit,proto3,oneof" json:"limit,omitempty"`
-	Filters       *Filters               `protobuf:"bytes,3,opt,name=filters,proto3" json:"filters,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state                protoimpl.MessageState `protogen:"open.v1"`
+	Query                string                 `protobuf:"bytes,1,opt,name=query,proto3" json:"query,omitempty"`
+	Limit                *uint32                `protobuf:"varint,2,opt,name=limit,proto3,oneof" json:"limit,omitempty"`
+	Filters              *Filters               `protobuf:"bytes,3,opt,name=filters,proto3" json:"filters,omitempty"`
+	Strategy             *string                `protobuf:"bytes,4,opt,name=strategy,proto3,oneof" json:"strategy,omitempty"`
+	GenerateExplanations *bool                  `protobuf:"varint,5,opt,name=generate_explanations,json=generateExplanations,proto3,oneof" json:"generate_explanations,omitempty"`
+	unknownFields        protoimpl.UnknownFields
+	sizeCache            protoimpl.SizeCache
 }
 
 func (x *RecommendRequest) Reset() {
@@ -147,6 +149,20 @@ func (x *RecommendRequest) GetFilters() *Filters {
 		return x.Filters
 	}
 	return nil
+}
+
+func (x *RecommendRequest) GetStrategy() string {
+	if x != nil && x.Strategy != nil {
+		return *x.Strategy
+	}
+	return ""
+}
+
+func (x *RecommendRequest) GetGenerateExplanations() bool {
+	if x != nil && x.GenerateExplanations != nil {
+		return *x.GenerateExplanations
+	}
+	return false
 }
 
 type Genre struct {
@@ -546,15 +562,17 @@ func (*GetCatalogRequest) Descriptor() ([]byte, []int) {
 }
 
 type Catalog struct {
-	state          protoimpl.MessageState `protogen:"open.v1"`
-	Genres         []*Genre               `protobuf:"bytes,1,rep,name=genres,proto3" json:"genres,omitempty"`
-	MovieCount     uint32                 `protobuf:"varint,2,opt,name=movie_count,json=movieCount,proto3" json:"movie_count,omitempty"`
-	YearFrom       *int32                 `protobuf:"varint,3,opt,name=year_from,json=yearFrom,proto3,oneof" json:"year_from,omitempty"`
-	YearTo         *int32                 `protobuf:"varint,4,opt,name=year_to,json=yearTo,proto3,oneof" json:"year_to,omitempty"`
-	DefaultResults uint32                 `protobuf:"varint,5,opt,name=default_results,json=defaultResults,proto3" json:"default_results,omitempty"`
-	MaxResults     uint32                 `protobuf:"varint,6,opt,name=max_results,json=maxResults,proto3" json:"max_results,omitempty"`
-	unknownFields  protoimpl.UnknownFields
-	sizeCache      protoimpl.SizeCache
+	state               protoimpl.MessageState `protogen:"open.v1"`
+	Genres              []*Genre               `protobuf:"bytes,1,rep,name=genres,proto3" json:"genres,omitempty"`
+	MovieCount          uint32                 `protobuf:"varint,2,opt,name=movie_count,json=movieCount,proto3" json:"movie_count,omitempty"`
+	YearFrom            *int32                 `protobuf:"varint,3,opt,name=year_from,json=yearFrom,proto3,oneof" json:"year_from,omitempty"`
+	YearTo              *int32                 `protobuf:"varint,4,opt,name=year_to,json=yearTo,proto3,oneof" json:"year_to,omitempty"`
+	DefaultResults      uint32                 `protobuf:"varint,5,opt,name=default_results,json=defaultResults,proto3" json:"default_results,omitempty"`
+	MaxResults          uint32                 `protobuf:"varint,6,opt,name=max_results,json=maxResults,proto3" json:"max_results,omitempty"`
+	AvailableStrategies []string               `protobuf:"bytes,7,rep,name=available_strategies,json=availableStrategies,proto3" json:"available_strategies,omitempty"`
+	DefaultStrategy     string                 `protobuf:"bytes,8,opt,name=default_strategy,json=defaultStrategy,proto3" json:"default_strategy,omitempty"`
+	unknownFields       protoimpl.UnknownFields
+	sizeCache           protoimpl.SizeCache
 }
 
 func (x *Catalog) Reset() {
@@ -629,6 +647,20 @@ func (x *Catalog) GetMaxResults() uint32 {
 	return 0
 }
 
+func (x *Catalog) GetAvailableStrategies() []string {
+	if x != nil {
+		return x.AvailableStrategies
+	}
+	return nil
+}
+
+func (x *Catalog) GetDefaultStrategy() string {
+	if x != nil {
+		return x.DefaultStrategy
+	}
+	return ""
+}
+
 var File_rag_v1_rag_proto protoreflect.FileDescriptor
 
 const file_rag_v1_rag_proto_rawDesc = "" +
@@ -644,12 +676,16 @@ const file_rag_v1_rag_proto_rawDesc = "" +
 	"_year_fromB\n" +
 	"\n" +
 	"\b_year_toB\r\n" +
-	"\v_min_rating\"x\n" +
+	"\v_min_rating\"\xfa\x01\n" +
 	"\x10RecommendRequest\x12\x14\n" +
 	"\x05query\x18\x01 \x01(\tR\x05query\x12\x19\n" +
 	"\x05limit\x18\x02 \x01(\rH\x00R\x05limit\x88\x01\x01\x12)\n" +
-	"\afilters\x18\x03 \x01(\v2\x0f.rag.v1.FiltersR\afiltersB\b\n" +
-	"\x06_limit\"+\n" +
+	"\afilters\x18\x03 \x01(\v2\x0f.rag.v1.FiltersR\afilters\x12\x1f\n" +
+	"\bstrategy\x18\x04 \x01(\tH\x01R\bstrategy\x88\x01\x01\x128\n" +
+	"\x15generate_explanations\x18\x05 \x01(\bH\x02R\x14generateExplanations\x88\x01\x01B\b\n" +
+	"\x06_limitB\v\n" +
+	"\t_strategyB\x18\n" +
+	"\x16_generate_explanations\"+\n" +
 	"\x05Genre\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\x03R\x02id\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\"\xe4\x01\n" +
@@ -678,7 +714,7 @@ const file_rag_v1_rag_proto_rawDesc = "" +
 	"\bwarnings\x18\x04 \x03(\v2\x0f.rag.v1.WarningR\bwarnings\",\n" +
 	"\x0fGetMovieRequest\x12\x19\n" +
 	"\bmovie_id\x18\x01 \x01(\x03R\amovieId\"\x13\n" +
-	"\x11GetCatalogRequest\"\xf5\x01\n" +
+	"\x11GetCatalogRequest\"\xd3\x02\n" +
 	"\aCatalog\x12%\n" +
 	"\x06genres\x18\x01 \x03(\v2\r.rag.v1.GenreR\x06genres\x12\x1f\n" +
 	"\vmovie_count\x18\x02 \x01(\rR\n" +
@@ -687,7 +723,9 @@ const file_rag_v1_rag_proto_rawDesc = "" +
 	"\ayear_to\x18\x04 \x01(\x05H\x01R\x06yearTo\x88\x01\x01\x12'\n" +
 	"\x0fdefault_results\x18\x05 \x01(\rR\x0edefaultResults\x12\x1f\n" +
 	"\vmax_results\x18\x06 \x01(\rR\n" +
-	"maxResultsB\f\n" +
+	"maxResults\x121\n" +
+	"\x14available_strategies\x18\a \x03(\tR\x13availableStrategies\x12)\n" +
+	"\x10default_strategy\x18\b \x01(\tR\x0fdefaultStrategyB\f\n" +
 	"\n" +
 	"_year_fromB\n" +
 	"\n" +

@@ -11,10 +11,17 @@ def main() -> None:
     parser.add_argument("query")
     parser.add_argument("--limit", type=int, default=5)
     parser.add_argument("--address", default="127.0.0.1:50051")
+    parser.add_argument("--strategy", choices=["bm25", "transformer", "hybrid"])
+    parser.add_argument("--generate-explanations", action=argparse.BooleanOptionalAction, default=None)
     args = parser.parse_args()
+    request = rag_pb2.RecommendRequest(query=args.query, limit=args.limit)
+    if args.strategy is not None:
+        request.strategy = args.strategy
+    if args.generate_explanations is not None:
+        request.generate_explanations = args.generate_explanations
     with grpc.insecure_channel(args.address) as channel:
         response = rag_pb2_grpc.RagServiceStub(channel).Recommend(
-            rag_pb2.RecommendRequest(query=args.query, limit=args.limit),
+            request,
             timeout=60,
         )
         print(MessageToJson(response, preserving_proto_field_name=True, ensure_ascii=False))

@@ -18,6 +18,8 @@ message RecommendRequest {
   string query = 1;
   optional uint32 limit = 2;
   Filters filters = 3;
+  optional string strategy = 4;
+  optional bool generate_explanations = 5;
 }
 message Genre { int64 id = 1; string name = 2; }
 message Movie {
@@ -46,4 +48,6 @@ message Catalog {
   optional int32 year_to = 4;
   uint32 default_results = 5;
   uint32 max_results = 6;
+  repeated string available_strategies = 7;
+  string default_strategy = 8;
 }

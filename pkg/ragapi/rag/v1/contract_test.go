@@ -10,7 +10,9 @@ import (
 
 func TestOptionalFieldPresence(t *testing.T) {
 	request := &ragv1.RecommendRequest{
-		Query: "space",
+		Query:                "space",
+		Strategy:             proto.String("bm25"),
+		GenerateExplanations: proto.Bool(false),
 		Filters: &ragv1.Filters{
 			MinRating: proto.Float64(0),
 		},
@@ -25,6 +27,12 @@ func TestOptionalFieldPresence(t *testing.T) {
 	}
 	if decoded.Limit != nil {
 		t.Fatal("omitted limit must stay absent")
+	}
+	if decoded.Strategy == nil || *decoded.Strategy != "bm25" {
+		t.Fatal("explicit strategy must preserve presence")
+	}
+	if decoded.GenerateExplanations == nil || *decoded.GenerateExplanations {
+		t.Fatal("explicit false generation flag must preserve presence")
 	}
 	if decoded.Filters.MinRating == nil || *decoded.Filters.MinRating != 0 {
 		t.Fatal("explicit zero rating must preserve presence")

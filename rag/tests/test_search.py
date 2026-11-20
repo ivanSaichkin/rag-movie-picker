@@ -3,7 +3,7 @@ from conftest import BrokenEncoder, FakeDense
 from qdrant_client import QdrantClient
 
 from movie_rag.embeddings import BM25Encoder, HybridEmbedder
-from movie_rag.models import Budget, Filters, PreparedQuery, SearchHit, ServiceError
+from movie_rag.models import Budget, Filters, IndexSchema, PreparedQuery, SearchHit, ServiceError
 from movie_rag.preprocessing import MovieFormatter
 from movie_rag.retrieval import RetrievalPipeline, reciprocal_rank_fusion
 from movie_rag.storage import QdrantStore
@@ -13,7 +13,7 @@ from movie_rag.storage import QdrantStore
 def search(movies):
     client = QdrantClient(":memory:")
     store = QdrantStore(client, "test")
-    store.create(3)
+    store.create(IndexSchema(enabled_vectors=["bm25", "transformer"], dimension=3))
     texts = [MovieFormatter().format(movie) for movie in movies]
     sparse = BM25Encoder()
     sparse.fit(texts)
@@ -44,9 +44,9 @@ def test_both_branches_enforce_filters(search):
     )
     assert [hit.movie.movie_id for hit in result.hits] == [1]
     assert result.strategy_used == "hybrid"
-    store.verify(3, 3, "test-index")
+    store.verify(IndexSchema(enabled_vectors=["bm25", "transformer"], dimension=3), 3, "test-index")
     with pytest.raises(ServiceError):
-        store.verify(3, 4, "test-index")
+        store.verify(IndexSchema(enabled_vectors=["bm25", "transformer"], dimension=3), 4, "test-index")
 
 
 def test_rrf_scores_and_deduplication(movies):
@@ -62,7 +62,7 @@ def test_branch_failure_and_empty_vector(search):
     store, sparse = search
     pipeline = RetrievalPipeline(sparse, BrokenEncoder(), store)
     result = pipeline.search(PreparedQuery("space", "space"), Filters(), 10, "hybrid", Budget.seconds(10))
-    assert result.strategy_used == "sparse"
+    assert result.strategy_used == "bm25"
     assert result.warnings[0].code == "RETRIEVAL_DEGRADED"
     pipeline = RetrievalPipeline(sparse, FakeDense(), store)
     assert pipeline.search(PreparedQuery("space", "unknown"), Filters(), 10, "hybrid", Budget.seconds(10)).hits
@@ -77,7 +77,7 @@ def test_translation_unavailable_falls_back_to_dense(search):
         "hybrid",
         Budget.seconds(10),
     )
-    assert result.strategy_used == "dense"
+    assert result.strategy_used == "transformer"
     assert result.hits
     assert result.warnings[0].code == "RETRIEVAL_DEGRADED"
 

@@ -66,6 +66,8 @@ class RagHandler(rpc.RagServiceServicer):
             domain = RecommendRequest(
                 query=request.query.strip(),
                 limit=request.limit if request.HasField("limit") else self.catalog.default_results,
+                strategy=request.strategy if request.HasField("strategy") else None,
+                generate_explanations=request.generate_explanations if request.HasField("generate_explanations") else None,
                 filters=Filters(
                     genre_ids=list(filters.genre_ids),
                     year_from=filters.year_from if filters.HasField("year_from") else None,
@@ -111,6 +113,8 @@ class RagHandler(rpc.RagServiceServicer):
                 movie_count=self.catalog.movie_count,
                 default_results=self.catalog.default_results,
                 max_results=self.catalog.max_results,
+                available_strategies=self.catalog.available_strategies,
+                default_strategy=self.catalog.default_strategy,
             )
             if self.catalog.year_from is not None:
                 result.year_from = self.catalog.year_from

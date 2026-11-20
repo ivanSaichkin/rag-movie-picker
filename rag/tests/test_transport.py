@@ -17,7 +17,7 @@ class FakeService:
     def recommend(self, request, budget):
         budget.remaining()
         self.last_request = request
-        return RecommendResponse(mode="retrieval_only", strategy_used="dense", items=[Recommendation(movie=self.movie)])
+        return RecommendResponse(mode="retrieval_only", strategy_used="transformer", items=[Recommendation(movie=self.movie)])
 
 
 class FakeStore:
@@ -43,12 +43,24 @@ def test_grpc_roundtrip_and_presence(movies, catalog):
             assert not result.items[0].movie.HasField("rating")
             assert service.last_request.limit == catalog.default_results
             assert service.last_request.filters.min_rating == 0
+            assert service.last_request.strategy is None
+            assert service.last_request.generate_explanations is None
+            stub.Recommend(pb.RecommendRequest(query="Space", strategy="bm25", generate_explanations=False), timeout=5)
+            assert service.last_request.strategy == "bm25"
+            assert service.last_request.generate_explanations is False
+            remote_catalog = stub.GetCatalog(pb.GetCatalogRequest(), timeout=5)
+            assert list(remote_catalog.available_strategies) == catalog.available_strategies
+            assert remote_catalog.default_strategy == catalog.default_strategy
             assert stub.GetCatalog(pb.GetCatalogRequest(), timeout=5).movie_count == 3
             assert stub.GetMovie(pb.GetMovieRequest(movie_id=3), timeout=5).movie_id == 3
             with pytest.raises(grpc.RpcError) as error:
                 stub.GetMovie(pb.GetMovieRequest(movie_id=99), timeout=5)
             assert error.value.code() == grpc.StatusCode.NOT_FOUND
-            for request in [pb.RecommendRequest(query=" "), pb.RecommendRequest(query="space", limit=0)]:
+            for request in [
+                pb.RecommendRequest(query=" "),
+                pb.RecommendRequest(query="space", limit=0),
+                pb.RecommendRequest(query="space", strategy="unknown"),
+            ]:
                 with pytest.raises(grpc.RpcError) as error:
                     stub.Recommend(request, timeout=5)
                 assert error.value.code() == grpc.StatusCode.INVALID_ARGUMENT

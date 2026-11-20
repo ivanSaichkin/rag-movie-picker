@@ -6,7 +6,15 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-Strategy = Literal["sparse", "dense", "hybrid"]
+VectorKind = Literal["bm25", "transformer"]
+Strategy = Literal["bm25", "transformer", "hybrid"]
+
+
+def available_strategies(vectors: list[VectorKind]) -> list[Strategy]:
+    strategies: list[Strategy] = [kind for kind in ("bm25", "transformer") if kind in vectors]
+    if len(strategies) == 2:
+        strategies.append("hybrid")
+    return strategies
 
 
 class ServiceError(Exception):
@@ -35,6 +43,19 @@ class Budget:
 
 class Model(BaseModel):
     model_config = ConfigDict(extra="forbid", allow_inf_nan=False)
+
+
+class IndexSchema(Model):
+    enabled_vectors: list[VectorKind] = Field(min_length=1)
+    dimension: int | None = Field(default=None, gt=0)
+
+    @model_validator(mode="after")
+    def valid_schema(self) -> "IndexSchema":
+        if len(set(self.enabled_vectors)) != len(self.enabled_vectors):
+            raise ValueError("Duplicate vector types")
+        if ("transformer" in self.enabled_vectors) != (self.dimension is not None):
+            raise ValueError("Only a transformer index requires a dense dimension")
+        return self
 
 
 class Genre(Model):
@@ -73,6 +94,8 @@ class RecommendRequest(Model):
     query: str = Field(min_length=1, max_length=1000)
     limit: int = Field(default=10, ge=1)
     filters: Filters = Field(default_factory=Filters)
+    strategy: Strategy | None = None
+    generate_explanations: bool | None = None
 
 
 class SparseVector(Model):
@@ -125,6 +148,8 @@ class Catalog(Model):
     year_to: int | None = None
     default_results: int = 10
     max_results: int = 50
+    available_strategies: list[Strategy] = Field(default_factory=lambda: ["bm25", "transformer", "hybrid"])
+    default_strategy: Strategy = "hybrid"
 
 
 @dataclass

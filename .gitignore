@@ -10,6 +10,8 @@ pytest-cache-files-*/
 !.env.example
 rag/.state/
 rag/.qdrant/
+rag/.state-*/
+rag/.qdrant-*/
 rag/.tools/
 .coverage
 htmlcov/

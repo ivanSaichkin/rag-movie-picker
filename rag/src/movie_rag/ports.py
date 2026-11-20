@@ -3,6 +3,7 @@ from typing import Protocol
 from movie_rag.models import (
     Budget,
     Filters,
+    IndexSchema,
     Movie,
     PreparedQuery,
     RecommendRequest,
@@ -42,8 +43,8 @@ class Readiness(Protocol):
 
 
 class IndexStore(VectorStore, Protocol):
-    def create(self, dimension: int) -> None: ...
-    def verify(self, dimension: int, count: int, index_id: str) -> None: ...
+    def create(self, schema: IndexSchema) -> None: ...
+    def verify(self, schema: IndexSchema, count: int, index_id: str) -> None: ...
 
 
 class Retriever(Protocol):

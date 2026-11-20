@@ -21,17 +21,20 @@ def reciprocal_rank_fusion(branches: list[list[SearchHit]], limit: int, k: int =
 
 
 class RetrievalPipeline:
-    def __init__(self, sparse: EmbeddingModel, dense: EmbeddingModel | None, store: VectorStore, rrf_k: int = 60) -> None:
+    def __init__(self, sparse: EmbeddingModel | None, dense: EmbeddingModel | None, store: VectorStore, rrf_k: int = 60) -> None:
         self.sparse, self.dense, self.store, self.rrf_k = sparse, dense, store, rrf_k
 
     def search(self, query: PreparedQuery, filters: Filters, limit: int, strategy: Strategy, budget: Budget) -> RetrievalResult:
+        branches = ["bm25", "transformer"] if strategy == "hybrid" else [strategy]
+        encoders = {"bm25": self.sparse, "transformer": self.dense}
+        if any(encoders[branch] is None for branch in branches):
+            raise ServiceError("INVALID_ARGUMENT", "Strategy requires vectors not present in the index")
         results: dict[str, list[SearchHit]] = {}
         errors = []
-        branches = ["sparse", "dense"] if strategy == "hybrid" else [strategy]
         for branch in branches:
             budget.remaining()
             try:
-                if branch == "sparse":
+                if branch == "bm25":
                     if query.sparse_en is None:
                         raise ServiceError("UNAVAILABLE", "English query unavailable")
                     vector = self.sparse.encode_query(query.sparse_en).sparse

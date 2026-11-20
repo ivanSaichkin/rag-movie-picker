@@ -5,7 +5,7 @@ import pytest
 from conftest import FakeDense
 from qdrant_client import QdrantClient
 
-from movie_rag.config import Settings
+from movie_rag.config import AppConfig
 from movie_rag.indexing import import_index, load_manifest
 from movie_rag.models import ServiceError
 from movie_rag.preprocessing import load_movies
@@ -48,15 +48,15 @@ def test_import_validation_and_duplicates(tmp_path):
 def test_import_idempotent_and_manifest_guard(tmp_path):
     path = tmp_path / "movies.csv"
     write_csv(path, [row(), row(2, overview="Garden comedy")])
-    settings = Settings(_env_file=None, dataset_path=path, index_state_dir=tmp_path / "state")
+    settings = AppConfig(index={"dataset_path": path, "state_dir": tmp_path / "state"})
     client = QdrantClient(":memory:")
-    store = QdrantStore(client, settings.qdrant_collection)
+    store = QdrantStore(client, settings.qdrant.collection)
     try:
         manifest = import_index(settings, store, FakeDense())
         again = import_index(settings, store, FakeDense())
         assert again.index_id == manifest.index_id
-        assert client.count(settings.qdrant_collection).count == 2
-        manifest_path = settings.index_state_dir / "manifest.json"
+        assert client.count(settings.qdrant.collection).count == 2
+        manifest_path = settings.index.state_dir / "manifest.json"
         assert load_manifest(manifest_path, settings).status == "ready"
         tampered = json.loads(manifest_path.read_text(encoding="utf-8"))
         tampered["bm25"]["avgdl"] = 99
@@ -69,7 +69,7 @@ def test_import_idempotent_and_manifest_guard(tmp_path):
 
 def test_config_limits():
     with pytest.raises(ValueError):
-        Settings(_env_file=None, default_results=20, max_results=10)
+        AppConfig(search={"default_results": 20, "max_results": 10})
 
 
 @pytest.mark.integration
@@ -80,12 +80,12 @@ def test_failed_import_never_becomes_ready(tmp_path):
 
     path = tmp_path / "movies.csv"
     write_csv(path, [row()])
-    settings = Settings(_env_file=None, dataset_path=path, index_state_dir=tmp_path / "state")
+    settings = AppConfig(index={"dataset_path": path, "state_dir": tmp_path / "state"})
     client = QdrantClient(":memory:")
     try:
         with pytest.raises(RuntimeError):
-            import_index(settings, QdrantStore(client, settings.qdrant_collection), FailingDense())
+            import_index(settings, QdrantStore(client, settings.qdrant.collection), FailingDense())
         with pytest.raises(ServiceError):
-            load_manifest(settings.index_state_dir / "manifest.json", settings)
+            load_manifest(settings.index.state_dir / "manifest.json", settings)
     finally:
         client.close()

@@ -67,7 +67,7 @@ def test_real_cached_transformer():
     from qdrant_client import QdrantClient
 
     from movie_rag.embeddings import BM25Encoder, HybridEmbedder
-    from movie_rag.models import Catalog, Movie
+    from movie_rag.models import Catalog, IndexSchema, Movie
     from movie_rag.preprocessing import MovieFormatter
     from movie_rag.retrieval import RetrievalPipeline
     from movie_rag.service import RagService
@@ -87,7 +87,7 @@ def test_real_cached_transformer():
     server = None
     try:
         store = QdrantStore(client, "model_smoke")
-        store.create(encoder.dimension)
+        store.create(IndexSchema(enabled_vectors=["bm25", "transformer"], dimension=encoder.dimension))
         store.upsert(movies, HybridEmbedder(sparse, encoder).encode_documents(texts), "smoke")
         catalog = Catalog(genres=[], movie_count=2)
         llm = ScriptedLLM([{"search_query_en": "space planets spaceship"}, ServiceError("UNAVAILABLE", "offline")])

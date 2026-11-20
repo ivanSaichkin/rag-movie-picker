@@ -3,40 +3,46 @@ import math
 from qdrant_client import QdrantClient
 from qdrant_client import models as qm
 
-from movie_rag.models import Budget, Filters, Movie, SearchHit, ServiceError, SparseVector, VectorRepresentation
+from movie_rag.models import Budget, Filters, IndexSchema, Movie, SearchHit, ServiceError, SparseVector, VectorRepresentation
 
 
 class QdrantStore:
     def __init__(self, client: QdrantClient, collection: str) -> None:
         self.client, self.collection = client, collection
 
-    def create(self, dimension: int) -> None:
+    def create(self, schema: IndexSchema) -> None:
         # Never delete or silently overwrite an existing collection.
         if self.client.collection_exists(self.collection):
             raise ValueError("Collection already exists; select a new collection and state directory for rebuilding")
         self.client.create_collection(
             self.collection,
-            vectors_config={"semantic": qm.VectorParams(size=dimension, distance=qm.Distance.COSINE)},
-            sparse_vectors_config={"bm25": qm.SparseVectorParams()},
+            vectors_config={"semantic": qm.VectorParams(size=schema.dimension, distance=qm.Distance.COSINE)}
+            if "transformer" in schema.enabled_vectors
+            else {},
+            sparse_vectors_config={"bm25": qm.SparseVectorParams()} if "bm25" in schema.enabled_vectors else {},
         )
-        for name, schema in [
+        for name, payload_type in [
             ("genre_ids", qm.PayloadSchemaType.INTEGER),
             ("year", qm.PayloadSchemaType.INTEGER),
             ("rating", qm.PayloadSchemaType.FLOAT),
             ("index_id", qm.PayloadSchemaType.KEYWORD),
         ]:
-            self.client.create_payload_index(self.collection, name, schema)
+            self.client.create_payload_index(self.collection, name, payload_type)
 
-    def verify(self, dimension: int, count: int, index_id: str) -> None:
+    def verify(self, schema: IndexSchema, count: int, index_id: str) -> None:
         try:
             info = self.client.get_collection(self.collection)
             dense = info.config.params.vectors
             sparse = info.config.params.sparse_vectors or {}
-            if not isinstance(dense, dict) or set(dense) != {"semantic"} or "bm25" not in sparse:
-                raise ValueError("Missing named vectors")
-            if dense["semantic"].size != dimension or dense["semantic"].distance != qm.Distance.COSINE:
+            expected_dense = {"semantic"} if "transformer" in schema.enabled_vectors else set()
+            expected_sparse = {"bm25"} if "bm25" in schema.enabled_vectors else set()
+            if not isinstance(dense, dict) or set(dense) != expected_dense or set(sparse) != expected_sparse:
+                raise ValueError("Named vectors do not match the index schema")
+            if expected_dense and (
+                dense["semantic"].size != schema.dimension or dense["semantic"].distance != qm.Distance.COSINE
+            ):
                 raise ValueError("Dense schema mismatch")
-            if sparse["bm25"].modifier is not None:
+            if expected_sparse and sparse["bm25"].modifier is not None:
                 raise ValueError("Automatic sparse IDF must be disabled")
             match = qm.Filter(must=[qm.FieldCondition(key="index_id", match=qm.MatchValue(value=index_id))])
             if self.client.count(self.collection, exact=True).count != count:
@@ -50,16 +56,23 @@ class QdrantStore:
         if len(movies) != len(vectors):
             raise ValueError("Movies and vectors must align")
         points = []
+        info = self.client.get_collection(self.collection)
+        expected = set(info.config.params.vectors or {}) | set(info.config.params.sparse_vectors or {})
         for movie, vector in zip(movies, vectors, strict=True):
-            if vector.dense is None or vector.sparse is None:
-                raise ValueError("Both vectors are required at import")
+            named_vectors = {}
+            if vector.dense is not None:
+                named_vectors["semantic"] = vector.dense
+            if vector.sparse is not None:
+                named_vectors["bm25"] = qm.SparseVector(**vector.sparse.model_dump())
+            if set(named_vectors) != expected:
+                raise ValueError("Document vectors must match the collection schema")
             payload = movie.model_dump()
             payload.update(genre_ids=[g.id for g in movie.genres], index_id=index_id)
             points.append(
                 qm.PointStruct(
                     id=movie.movie_id,
                     payload=payload,
-                    vector={"semantic": vector.dense, "bm25": qm.SparseVector(**vector.sparse.model_dump())},
+                    vector=named_vectors,
                 )
             )
         self.client.upsert(self.collection, points=points, wait=True)
