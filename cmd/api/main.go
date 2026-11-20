@@ -1,0 +1,38 @@
+// Command api runs the HTTP backend of RAG Movie Picker.
+package main
+
+import (
+	"context"
+	"fmt"
+	"log/slog"
+	"os"
+	"os/signal"
+	"syscall"
+
+	"github.com/ivanSaichkin/rag-movie-picker/internal/app"
+	"github.com/ivanSaichkin/rag-movie-picker/internal/config"
+	"github.com/ivanSaichkin/rag-movie-picker/internal/infrastructure/adapters/logger"
+)
+
+func main() {
+	if err := run(); err != nil {
+		slog.Error("api stopped with error", "error", err)
+		os.Exit(1)
+	}
+}
+
+func run() error {
+	cfg, err := config.Load()
+	if err != nil {
+		return fmt.Errorf("load config: %w", err)
+	}
+
+	log := logger.New(cfg.LogLevel, os.Stdout)
+	slog.SetDefault(log)
+
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+
+	log.Info("api starting", "addr", cfg.HTTPAddr, "log_level", cfg.LogLevel.String())
+	return app.New(cfg, log).Run(ctx)
+}
