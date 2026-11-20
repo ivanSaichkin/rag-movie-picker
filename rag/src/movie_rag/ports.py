@@ -4,6 +4,7 @@ from movie_rag.models import (
     Budget,
     Filters,
     IndexSchema,
+    LLMCallTrace,
     Movie,
     PreparedQuery,
     RecommendRequest,
@@ -35,7 +36,7 @@ class VectorStore(Protocol):
 
 
 class LLMClient(Protocol):
-    def complete_json(self, system: str, user: str, budget: Budget) -> dict: ...
+    def complete_json(self, system: str, user: str, budget: Budget, *, trace: LLMCallTrace | None = None) -> dict: ...
 
 
 class Readiness(Protocol):

@@ -49,6 +49,11 @@ class RagServiceStub:
                 request_serializer=rag_dot_v1_dot_rag__pb2.GetCatalogRequest.SerializeToString,
                 response_deserializer=rag_dot_v1_dot_rag__pb2.Catalog.FromString,
                 _registered_method=True)
+        self.InspectRecommendation = channel.unary_unary(
+                '/rag.v1.RagService/InspectRecommendation',
+                request_serializer=rag_dot_v1_dot_rag__pb2.RecommendRequest.SerializeToString,
+                response_deserializer=rag_dot_v1_dot_rag__pb2.RecommendationInspection.FromString,
+                _registered_method=True)
 
 
 class RagServiceServicer:
@@ -72,6 +77,12 @@ class RagServiceServicer:
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def InspectRecommendation(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
 
 def add_RagServiceServicer_to_server(servicer, server):
     rpc_method_handlers = {
@@ -89,6 +100,11 @@ def add_RagServiceServicer_to_server(servicer, server):
                     servicer.GetCatalog,
                     request_deserializer=rag_dot_v1_dot_rag__pb2.GetCatalogRequest.FromString,
                     response_serializer=rag_dot_v1_dot_rag__pb2.Catalog.SerializeToString,
+            ),
+            'InspectRecommendation': grpc.unary_unary_rpc_method_handler(
+                    servicer.InspectRecommendation,
+                    request_deserializer=rag_dot_v1_dot_rag__pb2.RecommendRequest.FromString,
+                    response_serializer=rag_dot_v1_dot_rag__pb2.RecommendationInspection.SerializeToString,
             ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
@@ -172,6 +188,33 @@ class RagService:
             '/rag.v1.RagService/GetCatalog',
             rag_dot_v1_dot_rag__pb2.GetCatalogRequest.SerializeToString,
             rag_dot_v1_dot_rag__pb2.Catalog.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def InspectRecommendation(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/rag.v1.RagService/InspectRecommendation',
+            rag_dot_v1_dot_rag__pb2.RecommendRequest.SerializeToString,
+            rag_dot_v1_dot_rag__pb2.RecommendationInspection.FromString,
             options,
             channel_credentials,
             insecure,

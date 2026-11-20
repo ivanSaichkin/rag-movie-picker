@@ -13,6 +13,7 @@ func TestOptionalFieldPresence(t *testing.T) {
 		Query:                "space",
 		Strategy:             proto.String("bm25"),
 		GenerateExplanations: proto.Bool(false),
+		CandidateLimit:       proto.Uint32(30),
 		Filters: &ragv1.Filters{
 			MinRating: proto.Float64(0),
 		},
@@ -34,6 +35,9 @@ func TestOptionalFieldPresence(t *testing.T) {
 	if decoded.GenerateExplanations == nil || *decoded.GenerateExplanations {
 		t.Fatal("explicit false generation flag must preserve presence")
 	}
+	if decoded.CandidateLimit == nil || *decoded.CandidateLimit != 30 {
+		t.Fatal("candidate_limit must preserve presence")
+	}
 	if decoded.Filters.MinRating == nil || *decoded.Filters.MinRating != 0 {
 		t.Fatal("explicit zero rating must preserve presence")
 	}
@@ -44,10 +48,10 @@ func TestOptionalFieldPresence(t *testing.T) {
 
 func TestServiceContract(t *testing.T) {
 	service := ragv1.File_rag_v1_rag_proto.Services().ByName("RagService")
-	if service == nil || service.Methods().Len() != 3 {
-		t.Fatal("expected Recommend, GetMovie and GetCatalog")
+	if service == nil || service.Methods().Len() != 4 {
+		t.Fatal("expected Recommend, GetMovie, GetCatalog and InspectRecommendation")
 	}
-	for _, name := range []string{"Recommend", "GetMovie", "GetCatalog"} {
+	for _, name := range []string{"Recommend", "GetMovie", "GetCatalog", "InspectRecommendation"} {
 		found := false
 		for i := 0; i < service.Methods().Len(); i++ {
 			found = found || string(service.Methods().Get(i).Name()) == name

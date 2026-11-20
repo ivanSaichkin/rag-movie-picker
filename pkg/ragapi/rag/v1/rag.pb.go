@@ -96,6 +96,7 @@ type RecommendRequest struct {
 	Filters              *Filters               `protobuf:"bytes,3,opt,name=filters,proto3" json:"filters,omitempty"`
 	Strategy             *string                `protobuf:"bytes,4,opt,name=strategy,proto3,oneof" json:"strategy,omitempty"`
 	GenerateExplanations *bool                  `protobuf:"varint,5,opt,name=generate_explanations,json=generateExplanations,proto3,oneof" json:"generate_explanations,omitempty"`
+	CandidateLimit       *uint32                `protobuf:"varint,6,opt,name=candidate_limit,json=candidateLimit,proto3,oneof" json:"candidate_limit,omitempty"`
 	unknownFields        protoimpl.UnknownFields
 	sizeCache            protoimpl.SizeCache
 }
@@ -163,6 +164,13 @@ func (x *RecommendRequest) GetGenerateExplanations() bool {
 		return *x.GenerateExplanations
 	}
 	return false
+}
+
+func (x *RecommendRequest) GetCandidateLimit() uint32 {
+	if x != nil && x.CandidateLimit != nil {
+		return *x.CandidateLimit
+	}
+	return 0
 }
 
 type Genre struct {
@@ -571,6 +579,7 @@ type Catalog struct {
 	MaxResults          uint32                 `protobuf:"varint,6,opt,name=max_results,json=maxResults,proto3" json:"max_results,omitempty"`
 	AvailableStrategies []string               `protobuf:"bytes,7,rep,name=available_strategies,json=availableStrategies,proto3" json:"available_strategies,omitempty"`
 	DefaultStrategy     string                 `protobuf:"bytes,8,opt,name=default_strategy,json=defaultStrategy,proto3" json:"default_strategy,omitempty"`
+	MaxCandidates       uint32                 `protobuf:"varint,9,opt,name=max_candidates,json=maxCandidates,proto3" json:"max_candidates,omitempty"`
 	unknownFields       protoimpl.UnknownFields
 	sizeCache           protoimpl.SizeCache
 }
@@ -661,6 +670,385 @@ func (x *Catalog) GetDefaultStrategy() string {
 	return ""
 }
 
+func (x *Catalog) GetMaxCandidates() uint32 {
+	if x != nil {
+		return x.MaxCandidates
+	}
+	return 0
+}
+
+type DiagnosticCandidate struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Movie         *Movie                 `protobuf:"bytes,1,opt,name=movie,proto3" json:"movie,omitempty"`
+	Score         float64                `protobuf:"fixed64,2,opt,name=score,proto3" json:"score,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DiagnosticCandidate) Reset() {
+	*x = DiagnosticCandidate{}
+	mi := &file_rag_v1_rag_proto_msgTypes[10]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DiagnosticCandidate) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DiagnosticCandidate) ProtoMessage() {}
+
+func (x *DiagnosticCandidate) ProtoReflect() protoreflect.Message {
+	mi := &file_rag_v1_rag_proto_msgTypes[10]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DiagnosticCandidate.ProtoReflect.Descriptor instead.
+func (*DiagnosticCandidate) Descriptor() ([]byte, []int) {
+	return file_rag_v1_rag_proto_rawDescGZIP(), []int{10}
+}
+
+func (x *DiagnosticCandidate) GetMovie() *Movie {
+	if x != nil {
+		return x.Movie
+	}
+	return nil
+}
+
+func (x *DiagnosticCandidate) GetScore() float64 {
+	if x != nil {
+		return x.Score
+	}
+	return 0
+}
+
+type LLMAttempt struct {
+	state            protoimpl.MessageState `protogen:"open.v1"`
+	Attempt          uint32                 `protobuf:"varint,1,opt,name=attempt,proto3" json:"attempt,omitempty"`
+	ElapsedMs        float64                `protobuf:"fixed64,2,opt,name=elapsed_ms,json=elapsedMs,proto3" json:"elapsed_ms,omitempty"`
+	HttpStatus       *uint32                `protobuf:"varint,3,opt,name=http_status,json=httpStatus,proto3,oneof" json:"http_status,omitempty"`
+	ProviderResponse string                 `protobuf:"bytes,4,opt,name=provider_response,json=providerResponse,proto3" json:"provider_response,omitempty"`
+	Content          string                 `protobuf:"bytes,5,opt,name=content,proto3" json:"content,omitempty"`
+	Error            string                 `protobuf:"bytes,6,opt,name=error,proto3" json:"error,omitempty"`
+	Truncated        bool                   `protobuf:"varint,7,opt,name=truncated,proto3" json:"truncated,omitempty"`
+	unknownFields    protoimpl.UnknownFields
+	sizeCache        protoimpl.SizeCache
+}
+
+func (x *LLMAttempt) Reset() {
+	*x = LLMAttempt{}
+	mi := &file_rag_v1_rag_proto_msgTypes[11]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *LLMAttempt) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*LLMAttempt) ProtoMessage() {}
+
+func (x *LLMAttempt) ProtoReflect() protoreflect.Message {
+	mi := &file_rag_v1_rag_proto_msgTypes[11]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use LLMAttempt.ProtoReflect.Descriptor instead.
+func (*LLMAttempt) Descriptor() ([]byte, []int) {
+	return file_rag_v1_rag_proto_rawDescGZIP(), []int{11}
+}
+
+func (x *LLMAttempt) GetAttempt() uint32 {
+	if x != nil {
+		return x.Attempt
+	}
+	return 0
+}
+
+func (x *LLMAttempt) GetElapsedMs() float64 {
+	if x != nil {
+		return x.ElapsedMs
+	}
+	return 0
+}
+
+func (x *LLMAttempt) GetHttpStatus() uint32 {
+	if x != nil && x.HttpStatus != nil {
+		return *x.HttpStatus
+	}
+	return 0
+}
+
+func (x *LLMAttempt) GetProviderResponse() string {
+	if x != nil {
+		return x.ProviderResponse
+	}
+	return ""
+}
+
+func (x *LLMAttempt) GetContent() string {
+	if x != nil {
+		return x.Content
+	}
+	return ""
+}
+
+func (x *LLMAttempt) GetError() string {
+	if x != nil {
+		return x.Error
+	}
+	return ""
+}
+
+func (x *LLMAttempt) GetTruncated() bool {
+	if x != nil {
+		return x.Truncated
+	}
+	return false
+}
+
+type LLMCallTrace struct {
+	state            protoimpl.MessageState `protogen:"open.v1"`
+	Stage            string                 `protobuf:"bytes,1,opt,name=stage,proto3" json:"stage,omitempty"`
+	RequestJson      string                 `protobuf:"bytes,2,opt,name=request_json,json=requestJson,proto3" json:"request_json,omitempty"`
+	ElapsedMs        float64                `protobuf:"fixed64,3,opt,name=elapsed_ms,json=elapsedMs,proto3" json:"elapsed_ms,omitempty"`
+	ValidationError  string                 `protobuf:"bytes,4,opt,name=validation_error,json=validationError,proto3" json:"validation_error,omitempty"`
+	Attempts         []*LLMAttempt          `protobuf:"bytes,5,rep,name=attempts,proto3" json:"attempts,omitempty"`
+	RequestTruncated bool                   `protobuf:"varint,6,opt,name=request_truncated,json=requestTruncated,proto3" json:"request_truncated,omitempty"`
+	unknownFields    protoimpl.UnknownFields
+	sizeCache        protoimpl.SizeCache
+}
+
+func (x *LLMCallTrace) Reset() {
+	*x = LLMCallTrace{}
+	mi := &file_rag_v1_rag_proto_msgTypes[12]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *LLMCallTrace) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*LLMCallTrace) ProtoMessage() {}
+
+func (x *LLMCallTrace) ProtoReflect() protoreflect.Message {
+	mi := &file_rag_v1_rag_proto_msgTypes[12]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use LLMCallTrace.ProtoReflect.Descriptor instead.
+func (*LLMCallTrace) Descriptor() ([]byte, []int) {
+	return file_rag_v1_rag_proto_rawDescGZIP(), []int{12}
+}
+
+func (x *LLMCallTrace) GetStage() string {
+	if x != nil {
+		return x.Stage
+	}
+	return ""
+}
+
+func (x *LLMCallTrace) GetRequestJson() string {
+	if x != nil {
+		return x.RequestJson
+	}
+	return ""
+}
+
+func (x *LLMCallTrace) GetElapsedMs() float64 {
+	if x != nil {
+		return x.ElapsedMs
+	}
+	return 0
+}
+
+func (x *LLMCallTrace) GetValidationError() string {
+	if x != nil {
+		return x.ValidationError
+	}
+	return ""
+}
+
+func (x *LLMCallTrace) GetAttempts() []*LLMAttempt {
+	if x != nil {
+		return x.Attempts
+	}
+	return nil
+}
+
+func (x *LLMCallTrace) GetRequestTruncated() bool {
+	if x != nil {
+		return x.RequestTruncated
+	}
+	return false
+}
+
+type RequestDiagnostics struct {
+	state                   protoimpl.MessageState `protogen:"open.v1"`
+	RequestedCandidateLimit uint32                 `protobuf:"varint,1,opt,name=requested_candidate_limit,json=requestedCandidateLimit,proto3" json:"requested_candidate_limit,omitempty"`
+	Candidates              []*DiagnosticCandidate `protobuf:"bytes,2,rep,name=candidates,proto3" json:"candidates,omitempty"`
+	LlmCandidateIds         []int64                `protobuf:"varint,3,rep,packed,name=llm_candidate_ids,json=llmCandidateIds,proto3" json:"llm_candidate_ids,omitempty"`
+	LlmCalls                []*LLMCallTrace        `protobuf:"bytes,4,rep,name=llm_calls,json=llmCalls,proto3" json:"llm_calls,omitempty"`
+	TimingsMs               map[string]float64     `protobuf:"bytes,5,rep,name=timings_ms,json=timingsMs,proto3" json:"timings_ms,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"fixed64,2,opt,name=value"`
+	unknownFields           protoimpl.UnknownFields
+	sizeCache               protoimpl.SizeCache
+}
+
+func (x *RequestDiagnostics) Reset() {
+	*x = RequestDiagnostics{}
+	mi := &file_rag_v1_rag_proto_msgTypes[13]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *RequestDiagnostics) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RequestDiagnostics) ProtoMessage() {}
+
+func (x *RequestDiagnostics) ProtoReflect() protoreflect.Message {
+	mi := &file_rag_v1_rag_proto_msgTypes[13]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RequestDiagnostics.ProtoReflect.Descriptor instead.
+func (*RequestDiagnostics) Descriptor() ([]byte, []int) {
+	return file_rag_v1_rag_proto_rawDescGZIP(), []int{13}
+}
+
+func (x *RequestDiagnostics) GetRequestedCandidateLimit() uint32 {
+	if x != nil {
+		return x.RequestedCandidateLimit
+	}
+	return 0
+}
+
+func (x *RequestDiagnostics) GetCandidates() []*DiagnosticCandidate {
+	if x != nil {
+		return x.Candidates
+	}
+	return nil
+}
+
+func (x *RequestDiagnostics) GetLlmCandidateIds() []int64 {
+	if x != nil {
+		return x.LlmCandidateIds
+	}
+	return nil
+}
+
+func (x *RequestDiagnostics) GetLlmCalls() []*LLMCallTrace {
+	if x != nil {
+		return x.LlmCalls
+	}
+	return nil
+}
+
+func (x *RequestDiagnostics) GetTimingsMs() map[string]float64 {
+	if x != nil {
+		return x.TimingsMs
+	}
+	return nil
+}
+
+type RecommendationInspection struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Response      *RecommendResponse     `protobuf:"bytes,1,opt,name=response,proto3" json:"response,omitempty"`
+	Diagnostics   *RequestDiagnostics    `protobuf:"bytes,2,opt,name=diagnostics,proto3" json:"diagnostics,omitempty"`
+	ErrorCode     string                 `protobuf:"bytes,3,opt,name=error_code,json=errorCode,proto3" json:"error_code,omitempty"`
+	ErrorMessage  string                 `protobuf:"bytes,4,opt,name=error_message,json=errorMessage,proto3" json:"error_message,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *RecommendationInspection) Reset() {
+	*x = RecommendationInspection{}
+	mi := &file_rag_v1_rag_proto_msgTypes[14]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *RecommendationInspection) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RecommendationInspection) ProtoMessage() {}
+
+func (x *RecommendationInspection) ProtoReflect() protoreflect.Message {
+	mi := &file_rag_v1_rag_proto_msgTypes[14]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RecommendationInspection.ProtoReflect.Descriptor instead.
+func (*RecommendationInspection) Descriptor() ([]byte, []int) {
+	return file_rag_v1_rag_proto_rawDescGZIP(), []int{14}
+}
+
+func (x *RecommendationInspection) GetResponse() *RecommendResponse {
+	if x != nil {
+		return x.Response
+	}
+	return nil
+}
+
+func (x *RecommendationInspection) GetDiagnostics() *RequestDiagnostics {
+	if x != nil {
+		return x.Diagnostics
+	}
+	return nil
+}
+
+func (x *RecommendationInspection) GetErrorCode() string {
+	if x != nil {
+		return x.ErrorCode
+	}
+	return ""
+}
+
+func (x *RecommendationInspection) GetErrorMessage() string {
+	if x != nil {
+		return x.ErrorMessage
+	}
+	return ""
+}
+
 var File_rag_v1_rag_proto protoreflect.FileDescriptor
 
 const file_rag_v1_rag_proto_rawDesc = "" +
@@ -676,16 +1064,18 @@ const file_rag_v1_rag_proto_rawDesc = "" +
 	"_year_fromB\n" +
 	"\n" +
 	"\b_year_toB\r\n" +
-	"\v_min_rating\"\xfa\x01\n" +
+	"\v_min_rating\"\xbc\x02\n" +
 	"\x10RecommendRequest\x12\x14\n" +
 	"\x05query\x18\x01 \x01(\tR\x05query\x12\x19\n" +
 	"\x05limit\x18\x02 \x01(\rH\x00R\x05limit\x88\x01\x01\x12)\n" +
 	"\afilters\x18\x03 \x01(\v2\x0f.rag.v1.FiltersR\afilters\x12\x1f\n" +
 	"\bstrategy\x18\x04 \x01(\tH\x01R\bstrategy\x88\x01\x01\x128\n" +
-	"\x15generate_explanations\x18\x05 \x01(\bH\x02R\x14generateExplanations\x88\x01\x01B\b\n" +
+	"\x15generate_explanations\x18\x05 \x01(\bH\x02R\x14generateExplanations\x88\x01\x01\x12,\n" +
+	"\x0fcandidate_limit\x18\x06 \x01(\rH\x03R\x0ecandidateLimit\x88\x01\x01B\b\n" +
 	"\x06_limitB\v\n" +
 	"\t_strategyB\x18\n" +
-	"\x16_generate_explanations\"+\n" +
+	"\x16_generate_explanationsB\x12\n" +
+	"\x10_candidate_limit\"+\n" +
 	"\x05Genre\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\x03R\x02id\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\"\xe4\x01\n" +
@@ -714,7 +1104,7 @@ const file_rag_v1_rag_proto_rawDesc = "" +
 	"\bwarnings\x18\x04 \x03(\v2\x0f.rag.v1.WarningR\bwarnings\",\n" +
 	"\x0fGetMovieRequest\x12\x19\n" +
 	"\bmovie_id\x18\x01 \x01(\x03R\amovieId\"\x13\n" +
-	"\x11GetCatalogRequest\"\xd3\x02\n" +
+	"\x11GetCatalogRequest\"\xfa\x02\n" +
 	"\aCatalog\x12%\n" +
 	"\x06genres\x18\x01 \x03(\v2\r.rag.v1.GenreR\x06genres\x12\x1f\n" +
 	"\vmovie_count\x18\x02 \x01(\rR\n" +
@@ -725,17 +1115,60 @@ const file_rag_v1_rag_proto_rawDesc = "" +
 	"\vmax_results\x18\x06 \x01(\rR\n" +
 	"maxResults\x121\n" +
 	"\x14available_strategies\x18\a \x03(\tR\x13availableStrategies\x12)\n" +
-	"\x10default_strategy\x18\b \x01(\tR\x0fdefaultStrategyB\f\n" +
+	"\x10default_strategy\x18\b \x01(\tR\x0fdefaultStrategy\x12%\n" +
+	"\x0emax_candidates\x18\t \x01(\rR\rmaxCandidatesB\f\n" +
 	"\n" +
 	"_year_fromB\n" +
 	"\n" +
-	"\b_year_to2\xbc\x01\n" +
+	"\b_year_to\"P\n" +
+	"\x13DiagnosticCandidate\x12#\n" +
+	"\x05movie\x18\x01 \x01(\v2\r.rag.v1.MovieR\x05movie\x12\x14\n" +
+	"\x05score\x18\x02 \x01(\x01R\x05score\"\xf6\x01\n" +
+	"\n" +
+	"LLMAttempt\x12\x18\n" +
+	"\aattempt\x18\x01 \x01(\rR\aattempt\x12\x1d\n" +
+	"\n" +
+	"elapsed_ms\x18\x02 \x01(\x01R\telapsedMs\x12$\n" +
+	"\vhttp_status\x18\x03 \x01(\rH\x00R\n" +
+	"httpStatus\x88\x01\x01\x12+\n" +
+	"\x11provider_response\x18\x04 \x01(\tR\x10providerResponse\x12\x18\n" +
+	"\acontent\x18\x05 \x01(\tR\acontent\x12\x14\n" +
+	"\x05error\x18\x06 \x01(\tR\x05error\x12\x1c\n" +
+	"\ttruncated\x18\a \x01(\bR\ttruncatedB\x0e\n" +
+	"\f_http_status\"\xee\x01\n" +
+	"\fLLMCallTrace\x12\x14\n" +
+	"\x05stage\x18\x01 \x01(\tR\x05stage\x12!\n" +
+	"\frequest_json\x18\x02 \x01(\tR\vrequestJson\x12\x1d\n" +
+	"\n" +
+	"elapsed_ms\x18\x03 \x01(\x01R\telapsedMs\x12)\n" +
+	"\x10validation_error\x18\x04 \x01(\tR\x0fvalidationError\x12.\n" +
+	"\battempts\x18\x05 \x03(\v2\x12.rag.v1.LLMAttemptR\battempts\x12+\n" +
+	"\x11request_truncated\x18\x06 \x01(\bR\x10requestTruncated\"\xf4\x02\n" +
+	"\x12RequestDiagnostics\x12:\n" +
+	"\x19requested_candidate_limit\x18\x01 \x01(\rR\x17requestedCandidateLimit\x12;\n" +
+	"\n" +
+	"candidates\x18\x02 \x03(\v2\x1b.rag.v1.DiagnosticCandidateR\n" +
+	"candidates\x12*\n" +
+	"\x11llm_candidate_ids\x18\x03 \x03(\x03R\x0fllmCandidateIds\x121\n" +
+	"\tllm_calls\x18\x04 \x03(\v2\x14.rag.v1.LLMCallTraceR\bllmCalls\x12H\n" +
+	"\n" +
+	"timings_ms\x18\x05 \x03(\v2).rag.v1.RequestDiagnostics.TimingsMsEntryR\ttimingsMs\x1a<\n" +
+	"\x0eTimingsMsEntry\x12\x10\n" +
+	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
+	"\x05value\x18\x02 \x01(\x01R\x05value:\x028\x01\"\xd3\x01\n" +
+	"\x18RecommendationInspection\x125\n" +
+	"\bresponse\x18\x01 \x01(\v2\x19.rag.v1.RecommendResponseR\bresponse\x12<\n" +
+	"\vdiagnostics\x18\x02 \x01(\v2\x1a.rag.v1.RequestDiagnosticsR\vdiagnostics\x12\x1d\n" +
+	"\n" +
+	"error_code\x18\x03 \x01(\tR\terrorCode\x12#\n" +
+	"\rerror_message\x18\x04 \x01(\tR\ferrorMessage2\x91\x02\n" +
 	"\n" +
 	"RagService\x12@\n" +
 	"\tRecommend\x12\x18.rag.v1.RecommendRequest\x1a\x19.rag.v1.RecommendResponse\x122\n" +
 	"\bGetMovie\x12\x17.rag.v1.GetMovieRequest\x1a\r.rag.v1.Movie\x128\n" +
 	"\n" +
-	"GetCatalog\x12\x19.rag.v1.GetCatalogRequest\x1a\x0f.rag.v1.CatalogBBZ@github.com/ivanSaichkin/rag-movie-picker/pkg/ragapi/rag/v1;ragv1b\x06proto3"
+	"GetCatalog\x12\x19.rag.v1.GetCatalogRequest\x1a\x0f.rag.v1.Catalog\x12S\n" +
+	"\x15InspectRecommendation\x12\x18.rag.v1.RecommendRequest\x1a .rag.v1.RecommendationInspectionBBZ@github.com/ivanSaichkin/rag-movie-picker/pkg/ragapi/rag/v1;ragv1b\x06proto3"
 
 var (
 	file_rag_v1_rag_proto_rawDescOnce sync.Once
@@ -749,37 +1182,52 @@ func file_rag_v1_rag_proto_rawDescGZIP() []byte {
 	return file_rag_v1_rag_proto_rawDescData
 }
 
-var file_rag_v1_rag_proto_msgTypes = make([]protoimpl.MessageInfo, 10)
+var file_rag_v1_rag_proto_msgTypes = make([]protoimpl.MessageInfo, 16)
 var file_rag_v1_rag_proto_goTypes = []any{
-	(*Filters)(nil),           // 0: rag.v1.Filters
-	(*RecommendRequest)(nil),  // 1: rag.v1.RecommendRequest
-	(*Genre)(nil),             // 2: rag.v1.Genre
-	(*Movie)(nil),             // 3: rag.v1.Movie
-	(*Recommendation)(nil),    // 4: rag.v1.Recommendation
-	(*Warning)(nil),           // 5: rag.v1.Warning
-	(*RecommendResponse)(nil), // 6: rag.v1.RecommendResponse
-	(*GetMovieRequest)(nil),   // 7: rag.v1.GetMovieRequest
-	(*GetCatalogRequest)(nil), // 8: rag.v1.GetCatalogRequest
-	(*Catalog)(nil),           // 9: rag.v1.Catalog
+	(*Filters)(nil),                  // 0: rag.v1.Filters
+	(*RecommendRequest)(nil),         // 1: rag.v1.RecommendRequest
+	(*Genre)(nil),                    // 2: rag.v1.Genre
+	(*Movie)(nil),                    // 3: rag.v1.Movie
+	(*Recommendation)(nil),           // 4: rag.v1.Recommendation
+	(*Warning)(nil),                  // 5: rag.v1.Warning
+	(*RecommendResponse)(nil),        // 6: rag.v1.RecommendResponse
+	(*GetMovieRequest)(nil),          // 7: rag.v1.GetMovieRequest
+	(*GetCatalogRequest)(nil),        // 8: rag.v1.GetCatalogRequest
+	(*Catalog)(nil),                  // 9: rag.v1.Catalog
+	(*DiagnosticCandidate)(nil),      // 10: rag.v1.DiagnosticCandidate
+	(*LLMAttempt)(nil),               // 11: rag.v1.LLMAttempt
+	(*LLMCallTrace)(nil),             // 12: rag.v1.LLMCallTrace
+	(*RequestDiagnostics)(nil),       // 13: rag.v1.RequestDiagnostics
+	(*RecommendationInspection)(nil), // 14: rag.v1.RecommendationInspection
+	nil,                              // 15: rag.v1.RequestDiagnostics.TimingsMsEntry
 }
 var file_rag_v1_rag_proto_depIdxs = []int32{
-	0, // 0: rag.v1.RecommendRequest.filters:type_name -> rag.v1.Filters
-	2, // 1: rag.v1.Movie.genres:type_name -> rag.v1.Genre
-	3, // 2: rag.v1.Recommendation.movie:type_name -> rag.v1.Movie
-	4, // 3: rag.v1.RecommendResponse.items:type_name -> rag.v1.Recommendation
-	5, // 4: rag.v1.RecommendResponse.warnings:type_name -> rag.v1.Warning
-	2, // 5: rag.v1.Catalog.genres:type_name -> rag.v1.Genre
-	1, // 6: rag.v1.RagService.Recommend:input_type -> rag.v1.RecommendRequest
-	7, // 7: rag.v1.RagService.GetMovie:input_type -> rag.v1.GetMovieRequest
-	8, // 8: rag.v1.RagService.GetCatalog:input_type -> rag.v1.GetCatalogRequest
-	6, // 9: rag.v1.RagService.Recommend:output_type -> rag.v1.RecommendResponse
-	3, // 10: rag.v1.RagService.GetMovie:output_type -> rag.v1.Movie
-	9, // 11: rag.v1.RagService.GetCatalog:output_type -> rag.v1.Catalog
-	9, // [9:12] is the sub-list for method output_type
-	6, // [6:9] is the sub-list for method input_type
-	6, // [6:6] is the sub-list for extension type_name
-	6, // [6:6] is the sub-list for extension extendee
-	0, // [0:6] is the sub-list for field type_name
+	0,  // 0: rag.v1.RecommendRequest.filters:type_name -> rag.v1.Filters
+	2,  // 1: rag.v1.Movie.genres:type_name -> rag.v1.Genre
+	3,  // 2: rag.v1.Recommendation.movie:type_name -> rag.v1.Movie
+	4,  // 3: rag.v1.RecommendResponse.items:type_name -> rag.v1.Recommendation
+	5,  // 4: rag.v1.RecommendResponse.warnings:type_name -> rag.v1.Warning
+	2,  // 5: rag.v1.Catalog.genres:type_name -> rag.v1.Genre
+	3,  // 6: rag.v1.DiagnosticCandidate.movie:type_name -> rag.v1.Movie
+	11, // 7: rag.v1.LLMCallTrace.attempts:type_name -> rag.v1.LLMAttempt
+	10, // 8: rag.v1.RequestDiagnostics.candidates:type_name -> rag.v1.DiagnosticCandidate
+	12, // 9: rag.v1.RequestDiagnostics.llm_calls:type_name -> rag.v1.LLMCallTrace
+	15, // 10: rag.v1.RequestDiagnostics.timings_ms:type_name -> rag.v1.RequestDiagnostics.TimingsMsEntry
+	6,  // 11: rag.v1.RecommendationInspection.response:type_name -> rag.v1.RecommendResponse
+	13, // 12: rag.v1.RecommendationInspection.diagnostics:type_name -> rag.v1.RequestDiagnostics
+	1,  // 13: rag.v1.RagService.Recommend:input_type -> rag.v1.RecommendRequest
+	7,  // 14: rag.v1.RagService.GetMovie:input_type -> rag.v1.GetMovieRequest
+	8,  // 15: rag.v1.RagService.GetCatalog:input_type -> rag.v1.GetCatalogRequest
+	1,  // 16: rag.v1.RagService.InspectRecommendation:input_type -> rag.v1.RecommendRequest
+	6,  // 17: rag.v1.RagService.Recommend:output_type -> rag.v1.RecommendResponse
+	3,  // 18: rag.v1.RagService.GetMovie:output_type -> rag.v1.Movie
+	9,  // 19: rag.v1.RagService.GetCatalog:output_type -> rag.v1.Catalog
+	14, // 20: rag.v1.RagService.InspectRecommendation:output_type -> rag.v1.RecommendationInspection
+	17, // [17:21] is the sub-list for method output_type
+	13, // [13:17] is the sub-list for method input_type
+	13, // [13:13] is the sub-list for extension type_name
+	13, // [13:13] is the sub-list for extension extendee
+	0,  // [0:13] is the sub-list for field type_name
 }
 
 func init() { file_rag_v1_rag_proto_init() }
@@ -792,13 +1240,14 @@ func file_rag_v1_rag_proto_init() {
 	file_rag_v1_rag_proto_msgTypes[3].OneofWrappers = []any{}
 	file_rag_v1_rag_proto_msgTypes[4].OneofWrappers = []any{}
 	file_rag_v1_rag_proto_msgTypes[9].OneofWrappers = []any{}
+	file_rag_v1_rag_proto_msgTypes[11].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_rag_v1_rag_proto_rawDesc), len(file_rag_v1_rag_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   10,
+			NumMessages:   16,
 			NumExtensions: 0,
 			NumServices:   1,
 		},
