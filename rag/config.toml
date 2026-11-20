@@ -1,0 +1,45 @@
+[index]
+enabled_vectors = ["bm25", "transformer"]
+state_dir = ".state"
+dataset_path = "../../TMDB 5000 Movie Dataset/tmdb_5000_movies.csv"
+batch_size = 16
+
+[search]
+default_strategy = "hybrid"
+default_results = 10
+max_results = 50
+candidate_multiplier = 3
+min_candidates = 30
+rrf_k = 60
+generate_explanations = false
+
+[bm25]
+k1 = 1.5
+b = 0.75
+query_preparation = "none" # "llm"/"none": search the original English text without an LLM
+
+[transformer]
+model = "intfloat/multilingual-e5-small"
+revision = "614241f622f53c4eeff9890bdc4f31cfecc418b3"
+device = "cpu"
+batch_size = 16
+local_only = false
+
+[qdrant]
+url = "http://127.0.0.1:6333"
+collection = "movies_v1"
+# path = ".qdrant" # embedded Qdrant instead of the server
+
+[llm]
+enabled = false
+base_url = "https://openrouter.ai/api/v1"
+model = ""
+api_key_env = "LLM_API_KEY"
+timeout_seconds = 20
+max_output_tokens = 4096
+context_bytes = 24000
+
+[server]
+address = "127.0.0.1:50051"
+workers = 4
+request_timeout_seconds = 60
