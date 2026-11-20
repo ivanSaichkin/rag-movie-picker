@@ -4,7 +4,7 @@
 # source: rag/v1/rag.proto
 # Protobuf Python Version: 7.35.1
 """Generated protocol buffer code."""
-from google.protobuf import descriptor as _descriptor
+import google.protobuf
 from google.protobuf import descriptor_pool as _descriptor_pool
 from google.protobuf import runtime_version as _runtime_version
 from google.protobuf import symbol_database as _symbol_database
@@ -29,7 +29,7 @@ DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x10rag/v1/rag.pro
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
 _builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'rag.v1.rag_pb2', _globals)
-if not _descriptor._USE_C_DESCRIPTORS:
+if not google.protobuf.descriptor._USE_C_DESCRIPTORS:
   _globals['DESCRIPTOR']._loaded_options = None
   _globals['DESCRIPTOR']._serialized_options = b'Z@github.com/ivanSaichkin/rag-movie-picker/pkg/ragapi/rag/v1;ragv1'
   _globals['_FILTERS']._serialized_start=29
