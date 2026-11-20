@@ -1,0 +1,19 @@
+# Standalone BM25: no transformer, no LLM, English queries.
+[index]
+enabled_vectors = ["bm25"]
+state_dir = ".state-bm25"
+dataset_path = "../../data/raw/TMDB 5000 Movie Dataset/tmdb_5000_movies.csv"
+
+[search]
+default_strategy = "bm25"
+generate_explanations = false
+
+[bm25]
+query_preparation = "none"
+
+[qdrant]
+path = ".qdrant-bm25"
+collection = "movies_bm25_v2"
+
+[llm]
+enabled = false
