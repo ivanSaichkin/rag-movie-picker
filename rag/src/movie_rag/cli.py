@@ -1,6 +1,5 @@
 import argparse
 import logging
-import os
 from contextlib import ExitStack
 from pathlib import Path
 
@@ -9,6 +8,7 @@ from filelock import FileLock
 from qdrant_client import QdrantClient
 
 from movie_rag.config import AppConfig, load_config
+from movie_rag.credentials import read_api_key
 from movie_rag.embeddings import BM25Encoder, TransformerEmbedder
 from movie_rag.indexing import IndexReadiness, Manifest, import_index, load_manifest
 from movie_rag.llm import OpenRouterClient
@@ -20,7 +20,7 @@ from movie_rag.storage import QdrantStore
 from movie_rag.transport import RagHandler, create_server
 
 
-def run(settings: AppConfig, command: str) -> None:
+def run(settings: AppConfig, command: str, env_file: Path | None = None) -> None:
     settings.index.state_dir.mkdir(parents=True, exist_ok=True)
     # Import and serving the same index are mutually exclusive in the local MVP.
     with ExitStack() as stack:
@@ -38,7 +38,7 @@ def run(settings: AppConfig, command: str) -> None:
             manifest = import_index(settings, store, dense)
             print(f"Index ready: movies={manifest.catalog.movie_count}, truncated={manifest.truncated_documents}")
             return
-        serve(settings, store, manifest, dense, stack)
+        serve(settings, store, manifest, dense, stack, env_file)
 
 
 def create_transformer(settings: AppConfig) -> DenseEmbeddingModel | None:
@@ -49,7 +49,12 @@ def create_transformer(settings: AppConfig) -> DenseEmbeddingModel | None:
 
 
 def serve(
-    settings: AppConfig, store: IndexStore, manifest: Manifest, dense: DenseEmbeddingModel | None, stack: ExitStack
+    settings: AppConfig,
+    store: IndexStore,
+    manifest: Manifest,
+    dense: DenseEmbeddingModel | None,
+    stack: ExitStack,
+    env_file: Path | None = None,
 ) -> None:
     if dense and (dense.dimension != manifest.vector_schema.dimension or dense.max_length != manifest.max_length):
         raise ServiceError("UNAVAILABLE", "Model and manifest mismatch")
@@ -61,6 +66,7 @@ def serve(
             "max_results": settings.search.max_results,
             "available_strategies": settings.available_strategies,
             "default_strategy": settings.search.default_strategy,
+            "max_candidates": settings.search.max_candidates,
         }
     )
     http = stack.enter_context(httpx.Client())
@@ -68,7 +74,7 @@ def serve(
     adapter = OpenRouterClient(
         http,
         llm.base_url,
-        os.environ.get(llm.api_key_env, "") if llm.enabled else "",
+        read_api_key(llm.api_key_env, env_file) if llm.enabled else "",
         llm.model,
         llm.timeout_seconds,
         llm.max_output_tokens,
@@ -97,9 +103,11 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Movie Picker RAG")
     parser.add_argument("command", choices=["import", "serve"])
     parser.add_argument("--config", type=Path, default=Path("config.toml"))
+    parser.add_argument("--env-file", type=Path, help="Secret file; defaults to .env beside the selected TOML")
     args = parser.parse_args()
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
-    run(load_config(args.config), args.command)
+    env_file = args.env_file.resolve() if args.env_file else args.config.resolve().parent / ".env"
+    run(load_config(args.config), args.command, env_file)
 
 
 if __name__ == "__main__":

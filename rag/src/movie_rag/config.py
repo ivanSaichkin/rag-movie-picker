@@ -10,7 +10,7 @@ from movie_rag.models import Model, Strategy, VectorKind, available_strategies
 class IndexConfig(Model):
     enabled_vectors: list[VectorKind] = Field(default_factory=lambda: ["bm25", "transformer"], min_length=1)
     state_dir: Path = Path(".state")
-    dataset_path: Path = Path("../../TMDB 5000 Movie Dataset/tmdb_5000_movies.csv")
+    dataset_path: Path = Path("../../data/raw/TMDB 5000 Movie Dataset/tmdb_5000_movies.csv")
     batch_size: int = Field(default=16, ge=1, le=256)
 
     @model_validator(mode="after")
@@ -26,6 +26,7 @@ class SearchConfig(Model):
     max_results: int = Field(default=50, ge=1, le=1000)
     candidate_multiplier: int = Field(default=3, ge=1)
     min_candidates: int = Field(default=30, ge=1)
+    max_candidates: int = Field(default=1000, ge=1, le=1000)
     rrf_k: int = Field(default=60, gt=0)
     generate_explanations: bool = True
 
@@ -33,6 +34,8 @@ class SearchConfig(Model):
     def valid_limits(self) -> "SearchConfig":
         if self.default_results > self.max_results:
             raise ValueError("default_results exceeds max_results")
+        if max(self.max_results, self.min_candidates) > self.max_candidates:
+            raise ValueError("max_candidates must cover max_results and min_candidates")
         return self
 
 

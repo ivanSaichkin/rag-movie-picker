@@ -6,6 +6,7 @@ service RagService {
   rpc Recommend(RecommendRequest) returns (RecommendResponse);
   rpc GetMovie(GetMovieRequest) returns (Movie);
   rpc GetCatalog(GetCatalogRequest) returns (Catalog);
+  rpc InspectRecommendation(RecommendRequest) returns (RecommendationInspection);
 }
 
 message Filters {
@@ -20,6 +21,7 @@ message RecommendRequest {
   Filters filters = 3;
   optional string strategy = 4;
   optional bool generate_explanations = 5;
+  optional uint32 candidate_limit = 6;
 }
 message Genre { int64 id = 1; string name = 2; }
 message Movie {
@@ -50,4 +52,37 @@ message Catalog {
   uint32 max_results = 6;
   repeated string available_strategies = 7;
   string default_strategy = 8;
+  uint32 max_candidates = 9;
+}
+
+message DiagnosticCandidate { Movie movie = 1; double score = 2; }
+message LLMAttempt {
+  uint32 attempt = 1;
+  double elapsed_ms = 2;
+  optional uint32 http_status = 3;
+  string provider_response = 4;
+  string content = 5;
+  string error = 6;
+  bool truncated = 7;
+}
+message LLMCallTrace {
+  string stage = 1;
+  string request_json = 2;
+  double elapsed_ms = 3;
+  string validation_error = 4;
+  repeated LLMAttempt attempts = 5;
+  bool request_truncated = 6;
+}
+message RequestDiagnostics {
+  uint32 requested_candidate_limit = 1;
+  repeated DiagnosticCandidate candidates = 2;
+  repeated int64 llm_candidate_ids = 3;
+  repeated LLMCallTrace llm_calls = 4;
+  map<string, double> timings_ms = 5;
+}
+message RecommendationInspection {
+  RecommendResponse response = 1;
+  RequestDiagnostics diagnostics = 2;
+  string error_code = 3;
+  string error_message = 4;
 }
