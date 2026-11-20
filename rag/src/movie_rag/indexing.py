@@ -36,6 +36,8 @@ class Manifest(Model):
 
     def fingerprint(self) -> str:
         data = self.model_dump(exclude={"index_id", "status", "truncated_documents"})
+        # Runtime candidate limits do not change indexed content or invalidate existing v2 manifests.
+        data["catalog"].pop("max_candidates", None)
         return hashlib.sha256(json.dumps(data, sort_keys=True, ensure_ascii=False).encode()).hexdigest()
 
 

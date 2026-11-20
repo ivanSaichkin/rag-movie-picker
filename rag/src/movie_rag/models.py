@@ -21,6 +21,7 @@ class ServiceError(Exception):
     def __init__(self, code: str, message: str) -> None:
         super().__init__(message)
         self.code = code
+        self.diagnostics: RequestDiagnostics | None = None
 
 
 @dataclass
@@ -96,6 +97,8 @@ class RecommendRequest(Model):
     filters: Filters = Field(default_factory=Filters)
     strategy: Strategy | None = None
     generate_explanations: bool | None = None
+    candidate_limit: int | None = Field(default=None, ge=1)
+    include_diagnostics: bool = False
 
 
 class SparseVector(Model):
@@ -134,11 +137,44 @@ class Recommendation(Model):
     reason: str | None = None
 
 
+class LLMAttempt(Model):
+    attempt: int
+    elapsed_ms: float = 0
+    http_status: int | None = None
+    provider_response: str = ""
+    content: str = ""
+    error: str = ""
+    truncated: bool = False
+
+
+class LLMCallTrace(Model):
+    stage: Literal["translation", "selection"]
+    request_json: str = ""
+    request_truncated: bool = False
+    elapsed_ms: float = 0
+    validation_error: str = ""
+    attempts: list[LLMAttempt] = Field(default_factory=list)
+
+
+class DiagnosticCandidate(Model):
+    movie: Movie
+    score: float
+
+
+class RequestDiagnostics(Model):
+    requested_candidate_limit: int = 0
+    candidates: list[DiagnosticCandidate] = Field(default_factory=list)
+    llm_candidate_ids: list[int] = Field(default_factory=list)
+    llm_calls: list[LLMCallTrace] = Field(default_factory=list)
+    timings_ms: dict[str, float] = Field(default_factory=dict)
+
+
 class RecommendResponse(Model):
     mode: Literal["generated", "retrieval_only", "empty"]
     strategy_used: Strategy
     items: list[Recommendation] = Field(default_factory=list)
     warnings: list[Warning] = Field(default_factory=list)
+    diagnostics: RequestDiagnostics | None = None
 
 
 class Catalog(Model):
@@ -150,6 +186,7 @@ class Catalog(Model):
     max_results: int = 50
     available_strategies: list[Strategy] = Field(default_factory=lambda: ["bm25", "transformer", "hybrid"])
     default_strategy: Strategy = "hybrid"
+    max_candidates: int = 1000
 
 
 @dataclass

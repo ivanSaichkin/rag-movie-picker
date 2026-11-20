@@ -2,7 +2,7 @@
 [index]
 enabled_vectors = ["bm25"]
 state_dir = ".state-bm25"
-dataset_path = "../../TMDB 5000 Movie Dataset/tmdb_5000_movies.csv"
+dataset_path = "../../data/raw/TMDB 5000 Movie Dataset/tmdb_5000_movies.csv"
 
 [search]
 default_strategy = "bm25"

@@ -9,7 +9,16 @@ import grpc
 from grpc_health.v1 import health_pb2, health_pb2_grpc
 from pydantic import ValidationError
 
-from movie_rag.models import Budget, Catalog, Filters, Movie, RecommendRequest, ServiceError
+from movie_rag.models import (
+    Budget,
+    Catalog,
+    Filters,
+    Movie,
+    RecommendRequest,
+    RecommendResponse,
+    RequestDiagnostics,
+    ServiceError,
+)
 from movie_rag.ports import Readiness, Recommender, VectorStore
 from rag.v1 import rag_pb2 as pb
 from rag.v1 import rag_pb2_grpc as rpc
@@ -30,6 +39,33 @@ def movie_message(movie: Movie) -> pb.Movie:
     if movie.rating is not None:
         message.rating = movie.rating
     return message
+
+
+def response_message(result: RecommendResponse) -> pb.RecommendResponse:
+    items = []
+    for item in result.items:
+        message = pb.Recommendation(movie=movie_message(item.movie))
+        if item.reason is not None:
+            message.reason = item.reason
+        items.append(message)
+    return pb.RecommendResponse(
+        mode=result.mode,
+        strategy_used=result.strategy_used,
+        items=items,
+        warnings=[pb.Warning(code=w.code, message=w.message) for w in result.warnings],
+    )
+
+
+def diagnostics_message(diagnostics: RequestDiagnostics | None) -> pb.RequestDiagnostics:
+    if diagnostics is None:
+        return pb.RequestDiagnostics()
+    return pb.RequestDiagnostics(
+        requested_candidate_limit=diagnostics.requested_candidate_limit,
+        candidates=[pb.DiagnosticCandidate(movie=movie_message(hit.movie), score=hit.score) for hit in diagnostics.candidates],
+        llm_candidate_ids=diagnostics.llm_candidate_ids,
+        llm_calls=[pb.LLMCallTrace(**call.model_dump(exclude_none=True)) for call in diagnostics.llm_calls],
+        timings_ms=diagnostics.timings_ms,
+    )
 
 
 class RagHandler(rpc.RagServiceServicer):
@@ -62,36 +98,48 @@ class RagHandler(rpc.RagServiceServicer):
 
     def Recommend(self, request: pb.RecommendRequest, context: grpc.ServicerContext) -> pb.RecommendResponse:
         def action():
-            filters = request.filters
-            domain = RecommendRequest(
-                query=request.query.strip(),
-                limit=request.limit if request.HasField("limit") else self.catalog.default_results,
-                strategy=request.strategy if request.HasField("strategy") else None,
-                generate_explanations=request.generate_explanations if request.HasField("generate_explanations") else None,
-                filters=Filters(
-                    genre_ids=list(filters.genre_ids),
-                    year_from=filters.year_from if filters.HasField("year_from") else None,
-                    year_to=filters.year_to if filters.HasField("year_to") else None,
-                    min_rating=filters.min_rating if filters.HasField("min_rating") else None,
-                ),
-            )
-            remaining = context.time_remaining()
-            budget = Budget.seconds(min(self.timeout, remaining) if remaining is not None else self.timeout, context.is_active)
-            result = self.service.recommend(domain, budget)
-            items = []
-            for item in result.items:
-                message = pb.Recommendation(movie=movie_message(item.movie))
-                if item.reason is not None:
-                    message.reason = item.reason
-                items.append(message)
-            return pb.RecommendResponse(
-                mode=result.mode,
-                strategy_used=result.strategy_used,
-                items=items,
-                warnings=[pb.Warning(code=w.code, message=w.message) for w in result.warnings],
-            )
+            result = self.service.recommend(self._request(request), self._budget(context))
+            return response_message(result)
 
         return self._call(context, action)
+
+    def InspectRecommendation(self, request: pb.RecommendRequest, context: grpc.ServicerContext) -> pb.RecommendationInspection:
+        def action():
+            try:
+                domain = self._request(request, include_diagnostics=True)
+                result = self.service.recommend(domain, self._budget(context))
+                return pb.RecommendationInspection(
+                    response=response_message(result), diagnostics=diagnostics_message(result.diagnostics)
+                )
+            except ServiceError as error:
+                return pb.RecommendationInspection(
+                    error_code=error.code, error_message=str(error), diagnostics=diagnostics_message(error.diagnostics)
+                )
+            except ValidationError:
+                return pb.RecommendationInspection(error_code="INVALID_ARGUMENT", error_message="Invalid request")
+
+        return self._call(context, action)
+
+    def _request(self, request: pb.RecommendRequest, include_diagnostics: bool = False) -> RecommendRequest:
+        filters = request.filters
+        return RecommendRequest(
+            query=request.query.strip(),
+            limit=request.limit if request.HasField("limit") else self.catalog.default_results,
+            strategy=request.strategy if request.HasField("strategy") else None,
+            generate_explanations=request.generate_explanations if request.HasField("generate_explanations") else None,
+            candidate_limit=request.candidate_limit if request.HasField("candidate_limit") else None,
+            include_diagnostics=include_diagnostics,
+            filters=Filters(
+                genre_ids=list(filters.genre_ids),
+                year_from=filters.year_from if filters.HasField("year_from") else None,
+                year_to=filters.year_to if filters.HasField("year_to") else None,
+                min_rating=filters.min_rating if filters.HasField("min_rating") else None,
+            ),
+        )
+
+    def _budget(self, context: grpc.ServicerContext) -> Budget:
+        remaining = context.time_remaining()
+        return Budget.seconds(min(self.timeout, remaining) if remaining is not None else self.timeout, context.is_active)
 
     def GetMovie(self, request: pb.GetMovieRequest, context: grpc.ServicerContext) -> pb.Movie:
         def action():
@@ -115,6 +163,7 @@ class RagHandler(rpc.RagServiceServicer):
                 max_results=self.catalog.max_results,
                 available_strategies=self.catalog.available_strategies,
                 default_strategy=self.catalog.default_strategy,
+                max_candidates=self.catalog.max_candidates,
             )
             if self.catalog.year_from is not None:
                 result.year_from = self.catalog.year_from
