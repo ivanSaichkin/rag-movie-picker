@@ -8,7 +8,7 @@ SHELL := /bin/bash
 BINARY := bin/api
 GOLANGCI_LINT ?= golangci-lint
 
-.PHONY: check fmt vet test test-race lint build run tidy
+.PHONY: check fmt vet test test-race test-integration lint build run tidy
 
 check: fmt vet lint test-race
 
@@ -23,6 +23,9 @@ test:
 
 test-race:
 	go test -race -count=1 ./...
+
+test-integration:
+	go test -race -tags=integration -count=1 ./...
 
 lint:
 	$(GOLANGCI_LINT) run ./...

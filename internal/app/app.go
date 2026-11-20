@@ -4,30 +4,65 @@ package app
 import (
 	"context"
 	"log/slog"
+	"sync"
+
+	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/ivanSaichkin/rag-movie-picker/internal/config"
 	"github.com/ivanSaichkin/rag-movie-picker/internal/infrastructure/adapters/router"
+	"github.com/ivanSaichkin/rag-movie-picker/internal/infrastructure/persistence/postgres"
+	"github.com/ivanSaichkin/rag-movie-picker/internal/infrastructure/services/cleanup"
 	"github.com/ivanSaichkin/rag-movie-picker/internal/interfaces/http/handlers"
 	"github.com/ivanSaichkin/rag-movie-picker/internal/interfaces/http/server"
 )
 
 // App is the composed API service.
 type App struct {
-	server *server.Server
+	pool    *pgxpool.Pool
+	server  *server.Server
+	cleaner *cleanup.RefreshTokens
 }
 
-// New builds the service. Readiness checks are registered by the stages that
-// add dependencies; PostgreSQL and RAG arrive in the next parts.
-func New(cfg config.Config, logger *slog.Logger) *App {
-	health := handlers.NewHealth()
+// New builds the service and its dependencies. It opens the database pool and
+// fails if the database is unreachable, so that a misconfigured process does
+// not report itself as running.
+func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, error) {
+	pool, err := postgres.NewPool(ctx, cfg.DatabaseURL, cfg.PGMaxConns)
+	if err != nil {
+		return nil, err
+	}
+
+	readiness, err := postgres.NewReadiness(pool)
+	if err != nil {
+		pool.Close()
+		return nil, err
+	}
+
+	health := handlers.NewHealth(readiness)
 	engine := router.New(logger, health)
 
 	return &App{
-		server: server.New(cfg.HTTPAddr, engine, logger),
-	}
+		pool:    pool,
+		server:  server.New(cfg.HTTPAddr, engine, logger),
+		cleaner: cleanup.NewRefreshTokens(postgres.NewRefreshTokens(pool), logger),
+	}, nil
 }
 
-// Run serves requests until ctx is cancelled.
+// Run serves requests and runs background maintenance until ctx is cancelled.
 func (a *App) Run(ctx context.Context) error {
-	return a.server.Run(ctx)
+	defer a.pool.Close()
+
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+
+	var group sync.WaitGroup
+	group.Go(func() {
+		a.cleaner.Run(ctx)
+	})
+
+	err := a.server.Run(ctx)
+	cancel()
+	group.Wait()
+
+	return err
 }

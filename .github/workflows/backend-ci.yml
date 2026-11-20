@@ -78,3 +78,18 @@ jobs:
         run: go vet ./...
       - name: Test with race detector
         run: go test -race -count=1 ./...
+
+  integration:
+    name: Integration tests (PostgreSQL)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+          cache-dependency-path: go.sum
+      - name: Test with PostgreSQL in Docker
+        run: go test -race -tags=integration -count=1 ./...

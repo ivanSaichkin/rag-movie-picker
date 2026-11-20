@@ -11,14 +11,18 @@ import (
 )
 
 const (
-	defaultHTTPAddr = "127.0.0.1:8080"
-	defaultLogLevel = slog.LevelInfo
+	defaultHTTPAddr   = "127.0.0.1:8080"
+	defaultLogLevel   = slog.LevelInfo
+	defaultPGMaxConns = 10
+	maxPGMaxConns     = 100
 )
 
 // Config is the runtime configuration of the API service.
 type Config struct {
-	HTTPAddr string
-	LogLevel slog.Level
+	HTTPAddr    string
+	LogLevel    slog.Level
+	DatabaseURL string
+	PGMaxConns  int32
 }
 
 // Load reads the configuration from the environment. It contains only the
@@ -26,8 +30,9 @@ type Config struct {
 // with their consumers so that no configuration stays unused.
 func Load() (Config, error) {
 	cfg := Config{
-		HTTPAddr: defaultHTTPAddr,
-		LogLevel: defaultLogLevel,
+		HTTPAddr:   defaultHTTPAddr,
+		LogLevel:   defaultLogLevel,
+		PGMaxConns: defaultPGMaxConns,
 	}
 
 	if raw, ok := os.LookupEnv("HTTP_ADDR"); ok {
@@ -43,6 +48,21 @@ func Load() (Config, error) {
 			return Config{}, err
 		}
 		cfg.LogLevel = level
+	}
+
+	databaseURL := strings.TrimSpace(os.Getenv("DATABASE_URL"))
+	if databaseURL == "" {
+		return Config{}, fmt.Errorf("DATABASE_URL: required")
+	}
+	cfg.DatabaseURL = databaseURL
+
+	if raw, ok := os.LookupEnv("PG_MAX_CONNS"); ok {
+		maxConns, err := strconv.Atoi(strings.TrimSpace(raw))
+		if err != nil || maxConns <= 0 || maxConns > maxPGMaxConns {
+			return Config{}, fmt.Errorf("PG_MAX_CONNS: expected integer in range 1..%d, got %q", maxPGMaxConns, raw)
+		}
+		//nolint:gosec // G109: maxConns is validated to fit into int32 above.
+		cfg.PGMaxConns = int32(maxConns)
 	}
 
 	return cfg, nil

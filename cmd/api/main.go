@@ -34,5 +34,10 @@ func run() error {
 	defer stop()
 
 	log.Info("api starting", "addr", cfg.HTTPAddr, "log_level", cfg.LogLevel.String())
-	return app.New(cfg, log).Run(ctx)
+
+	application, err := app.New(ctx, cfg, log)
+	if err != nil {
+		return fmt.Errorf("build app: %w", err)
+	}
+	return application.Run(ctx)
 }
