@@ -15,3 +15,5 @@ rag/.qdrant-*/
 rag/.tools/
 .coverage
 htmlcov/
+evaluation/results/
+evaluation/*.ipynb
