@@ -65,7 +65,9 @@ Source - https://habr.com/ru/articles/911018/
 └── pkg/    
     └── testutils/
 ```
- 
+
+Go-сервис этого репозитория размещается в `backend/`; структура внутри каталога повторяет дерево выше.
+
 ## Commits
  - use ```go mod tidy``` to delete unused imports
  - use ```go test -v ./...``` to run all tests
