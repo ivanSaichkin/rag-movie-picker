@@ -25,11 +25,11 @@ func TestAuthFlowWithRealRepositories(t *testing.T) {
 	ctx := context.Background()
 
 	// Cheap Argon2 parameters keep the test fast; the format is the same.
-	hasher := password.New(1, 8, 1)
-	issuer := token.New(flowSecret, time.Minute)
-	service, err := auth.New(postgres.NewUsers(pool), postgres.NewRefreshTokens(pool), hasher, issuer, time.Hour)
+	hasher := password.NewArgon2idHasher(1, 8, 1)
+	issuer := token.NewAccessTokenIssuer(flowSecret, time.Minute)
+	service, err := auth.NewAuthenticationService(postgres.NewUserRepository(pool), postgres.NewRefreshTokenRepository(pool), hasher, issuer, time.Hour)
 	if err != nil {
-		t.Fatalf("auth.New() error = %v", err)
+		t.Fatalf("auth.NewAuthenticationService() error = %v", err)
 	}
 
 	session, err := service.Register(ctx, "  Flow@Example.com ", flowPassword)
@@ -43,9 +43,9 @@ func TestAuthFlowWithRealRepositories(t *testing.T) {
 		t.Fatal("both tokens must be issued")
 	}
 
-	userID, err := issuer.ParseAccess(session.AccessToken)
+	userID, err := issuer.ParseAccessToken(session.AccessToken)
 	if err != nil {
-		t.Fatalf("ParseAccess() error = %v", err)
+		t.Fatalf("ParseAccessToken() error = %v", err)
 	}
 	if userID != session.User.ID {
 		t.Fatalf("access token subject = %v, want %v", userID, session.User.ID)
@@ -70,12 +70,12 @@ func TestAuthFlowWithRealRepositories(t *testing.T) {
 		t.Fatalf("unknown email error = %v, want ErrInvalidCredentials", err)
 	}
 
-	me, err := service.Me(ctx, session.User.ID)
+	me, err := service.CurrentUser(ctx, session.User.ID)
 	if err != nil {
-		t.Fatalf("Me() error = %v", err)
+		t.Fatalf("CurrentUser() error = %v", err)
 	}
 	if me.Email != "flow@example.com" {
-		t.Fatalf("Me() email = %q", me.Email)
+		t.Fatalf("CurrentUser() email = %q", me.Email)
 	}
 
 	refreshed, err := service.Refresh(ctx, loggedIn.RefreshToken)

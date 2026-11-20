@@ -10,19 +10,19 @@ import (
 	"github.com/ivanSaichkin/rag-movie-picker/backend/internal/domain/rules"
 )
 
-// Schema reads the state of the applied migrations.
-type Schema struct {
+// MigrationState reads the state of the applied migrations.
+type MigrationState struct {
 	pool *pgxpool.Pool
 }
 
-// NewSchema builds the schema reader.
-func NewSchema(pool *pgxpool.Pool) *Schema {
-	return &Schema{pool: pool}
+// NewMigrationState builds the schema reader.
+func NewMigrationState(pool *pgxpool.Pool) *MigrationState {
+	return &MigrationState{pool: pool}
 }
 
 // SchemaVersion returns the applied version. An empty migration table means
 // that no migration was applied yet, which is reported as version zero.
-func (s *Schema) SchemaVersion(ctx context.Context) (uint, bool, error) {
+func (s *MigrationState) SchemaVersion(ctx context.Context) (uint, bool, error) {
 	const query = `SELECT version, dirty FROM schema_migrations`
 
 	var (

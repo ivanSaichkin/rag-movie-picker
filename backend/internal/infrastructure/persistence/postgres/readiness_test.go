@@ -24,7 +24,7 @@ func (f fakeSchema) SchemaVersion(context.Context) (uint, bool, error) {
 }
 
 func TestReadinessPassesWhenSchemaIsCurrent(t *testing.T) {
-	check := Readiness{
+	check := ReadinessCheck{
 		db:     fakePinger{},
 		schema: fakeSchema{version: 3},
 		latest: 3,
@@ -39,7 +39,7 @@ func TestReadinessPassesWhenSchemaIsCurrent(t *testing.T) {
 }
 
 func TestReadinessReportsPingFailure(t *testing.T) {
-	check := Readiness{
+	check := ReadinessCheck{
 		db:     fakePinger{err: errors.New("connection refused")},
 		schema: fakeSchema{version: 1},
 		latest: 1,
@@ -55,7 +55,7 @@ func TestReadinessReportsPingFailure(t *testing.T) {
 }
 
 func TestReadinessRejectsDirtySchema(t *testing.T) {
-	check := Readiness{
+	check := ReadinessCheck{
 		db:     fakePinger{},
 		schema: fakeSchema{version: 2, dirty: true},
 		latest: 2,
@@ -71,7 +71,7 @@ func TestReadinessRejectsDirtySchema(t *testing.T) {
 }
 
 func TestReadinessRejectsStaleSchema(t *testing.T) {
-	check := Readiness{
+	check := ReadinessCheck{
 		db:     fakePinger{},
 		schema: fakeSchema{version: 1},
 		latest: 2,
@@ -87,7 +87,7 @@ func TestReadinessRejectsStaleSchema(t *testing.T) {
 }
 
 func TestReadinessReportsSchemaReadFailure(t *testing.T) {
-	check := Readiness{
+	check := ReadinessCheck{
 		db:     fakePinger{},
 		schema: fakeSchema{err: errors.New("boom")},
 		latest: 1,
@@ -99,9 +99,9 @@ func TestReadinessReportsSchemaReadFailure(t *testing.T) {
 }
 
 func TestNewReadinessUsesEmbeddedVersion(t *testing.T) {
-	check, err := NewReadiness(nil)
+	check, err := NewReadinessCheck(nil)
 	if err != nil {
-		t.Fatalf("NewReadiness() error = %v", err)
+		t.Fatalf("NewReadinessCheck() error = %v", err)
 	}
 	if check.latest != 1 {
 		t.Fatalf("latest = %d, want 1", check.latest)

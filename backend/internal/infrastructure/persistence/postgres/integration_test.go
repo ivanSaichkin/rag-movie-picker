@@ -98,9 +98,9 @@ func TestReadinessRequiresCurrentSchema(t *testing.T) {
 	dsn, pool := newTestDatabase(t)
 	ctx := context.Background()
 
-	readiness, err := postgres.NewReadiness(pool)
+	readiness, err := postgres.NewReadinessCheck(pool)
 	if err != nil {
-		t.Fatalf("NewReadiness() error = %v", err)
+		t.Fatalf("NewReadinessCheck() error = %v", err)
 	}
 	if err := readiness.Check(ctx); err != nil {
 		t.Fatalf("readiness must pass on a migrated database: %v", err)
@@ -122,7 +122,7 @@ func TestReadinessRequiresCurrentSchema(t *testing.T) {
 func TestUsers(t *testing.T) {
 	_, pool := newTestDatabase(t)
 	ctx := context.Background()
-	users := postgres.NewUsers(pool)
+	users := postgres.NewUserRepository(pool)
 
 	created, err := users.Create(ctx, models.User{Email: "User@Example.com", PasswordHash: "hash"})
 	if err != nil {
@@ -140,27 +140,27 @@ func TestUsers(t *testing.T) {
 		t.Fatalf("duplicate email error = %v, want ErrEmailTaken", err)
 	}
 
-	found, err := users.ByEmail(ctx, "USER@EXAMPLE.COM")
+	found, err := users.FindByEmail(ctx, "USER@EXAMPLE.COM")
 	if err != nil {
-		t.Fatalf("ByEmail() error = %v", err)
+		t.Fatalf("FindByEmail() error = %v", err)
 	}
 	if found.ID != created.ID || found.PasswordHash != "hash" {
-		t.Fatalf("ByEmail() = %+v", found)
+		t.Fatalf("FindByEmail() = %+v", found)
 	}
 
-	byID, err := users.ByID(ctx, created.ID)
+	byID, err := users.FindByID(ctx, created.ID)
 	if err != nil {
-		t.Fatalf("ByID() error = %v", err)
+		t.Fatalf("FindByID() error = %v", err)
 	}
 	if byID.Email != "User@Example.com" {
-		t.Fatalf("ByID() email = %q", byID.Email)
+		t.Fatalf("FindByID() email = %q", byID.Email)
 	}
 
-	if _, err := users.ByID(ctx, uuid.New()); !errors.Is(err, rules.ErrNotFound) {
-		t.Fatalf("ByID(unknown) error = %v, want ErrNotFound", err)
+	if _, err := users.FindByID(ctx, uuid.New()); !errors.Is(err, rules.ErrNotFound) {
+		t.Fatalf("FindByID(unknown) error = %v, want ErrNotFound", err)
 	}
-	if _, err := users.ByEmail(ctx, "nobody@example.com"); !errors.Is(err, rules.ErrNotFound) {
-		t.Fatalf("ByEmail(unknown) error = %v, want ErrNotFound", err)
+	if _, err := users.FindByEmail(ctx, "nobody@example.com"); !errors.Is(err, rules.ErrNotFound) {
+		t.Fatalf("FindByEmail(unknown) error = %v, want ErrNotFound", err)
 	}
 }
 
@@ -168,13 +168,13 @@ func TestRefreshTokens(t *testing.T) {
 	_, pool := newTestDatabase(t)
 	ctx := context.Background()
 
-	users := postgres.NewUsers(pool)
+	users := postgres.NewUserRepository(pool)
 	user, err := users.Create(ctx, models.User{Email: "tokens@example.com", PasswordHash: "hash"})
 	if err != nil {
 		t.Fatalf("create user: %v", err)
 	}
 
-	tokens := postgres.NewRefreshTokens(pool)
+	tokens := postgres.NewRefreshTokenRepository(pool)
 	family := uuid.New()
 	expiresAt := time.Now().Add(time.Hour)
 
@@ -201,12 +201,12 @@ func TestRefreshTokens(t *testing.T) {
 		t.Fatalf("Create(second) error = %v", err)
 	}
 
-	found, err := tokens.ByHash(ctx, []byte("hash-1"))
+	found, err := tokens.FindByHash(ctx, []byte("hash-1"))
 	if err != nil {
-		t.Fatalf("ByHash() error = %v", err)
+		t.Fatalf("FindByHash() error = %v", err)
 	}
-	if found.ID != first.ID || found.Revoked() {
-		t.Fatalf("ByHash() = %+v", found)
+	if found.ID != first.ID || found.IsRevoked() {
+		t.Fatalf("FindByHash() = %+v", found)
 	}
 
 	revoked, err := tokens.Revoke(ctx, first.ID)
@@ -218,11 +218,11 @@ func TestRefreshTokens(t *testing.T) {
 		t.Fatalf("second Revoke() = %t, %v; want false, nil", revoked, err)
 	}
 
-	found, err = tokens.ByHash(ctx, []byte("hash-1"))
+	found, err = tokens.FindByHash(ctx, []byte("hash-1"))
 	if err != nil {
-		t.Fatalf("ByHash() after revoke error = %v", err)
+		t.Fatalf("FindByHash() after revoke error = %v", err)
 	}
-	if !found.Revoked() {
+	if !found.IsRevoked() {
 		t.Fatal("revoked token must report the revocation time")
 	}
 
@@ -234,24 +234,24 @@ func TestRefreshTokens(t *testing.T) {
 		t.Fatalf("RevokeFamily() = %d, want 1 active token", affected)
 	}
 
-	second, err = tokens.ByHash(ctx, []byte("hash-2"))
+	second, err = tokens.FindByHash(ctx, []byte("hash-2"))
 	if err != nil {
-		t.Fatalf("ByHash(second) error = %v", err)
+		t.Fatalf("FindByHash(second) error = %v", err)
 	}
-	if !second.Revoked() {
+	if !second.IsRevoked() {
 		t.Fatal("family revocation must revoke the sibling token")
 	}
 
-	removed, err := tokens.DeleteStale(ctx, time.Now().Add(time.Hour))
+	removed, err := tokens.DeleteExpired(ctx, time.Now().Add(time.Hour))
 	if err != nil {
-		t.Fatalf("DeleteStale() error = %v", err)
+		t.Fatalf("DeleteExpired() error = %v", err)
 	}
 	if removed != 2 {
-		t.Fatalf("DeleteStale() = %d, want 2", removed)
+		t.Fatalf("DeleteExpired() = %d, want 2", removed)
 	}
 
-	if _, err := tokens.ByHash(ctx, []byte("hash-1")); !errors.Is(err, rules.ErrNotFound) {
-		t.Fatalf("ByHash() after cleanup error = %v, want ErrNotFound", err)
+	if _, err := tokens.FindByHash(ctx, []byte("hash-1")); !errors.Is(err, rules.ErrNotFound) {
+		t.Fatalf("FindByHash() after cleanup error = %v, want ErrNotFound", err)
 	}
 }
 
@@ -259,7 +259,7 @@ func TestUserMoviesConstraints(t *testing.T) {
 	_, pool := newTestDatabase(t)
 	ctx := context.Background()
 
-	user, err := postgres.NewUsers(pool).Create(ctx, models.User{Email: "movies@example.com", PasswordHash: "hash"})
+	user, err := postgres.NewUserRepository(pool).Create(ctx, models.User{Email: "movies@example.com", PasswordHash: "hash"})
 	if err != nil {
 		t.Fatalf("create user: %v", err)
 	}
@@ -300,7 +300,7 @@ func TestSearchHistoryConstraints(t *testing.T) {
 	_, pool := newTestDatabase(t)
 	ctx := context.Background()
 
-	user, err := postgres.NewUsers(pool).Create(ctx, models.User{Email: "history@example.com", PasswordHash: "hash"})
+	user, err := postgres.NewUserRepository(pool).Create(ctx, models.User{Email: "history@example.com", PasswordHash: "hash"})
 	if err != nil {
 		t.Fatalf("create user: %v", err)
 	}

@@ -26,7 +26,7 @@ func (f fakeCheck) Name() string { return f.name }
 
 func (f fakeCheck) Check(context.Context) error { return f.err }
 
-func newHealthEngine(health *handlers.Health) *gin.Engine {
+func newHealthEngine(health *handlers.HealthHandler) *gin.Engine {
 	gin.SetMode(gin.TestMode)
 	engine := gin.New()
 	engine.Use(middleware.Logging(slog.New(slog.NewJSONHandler(io.Discard, nil))))
@@ -36,7 +36,7 @@ func newHealthEngine(health *handlers.Health) *gin.Engine {
 }
 
 func TestLiveness(t *testing.T) {
-	engine := newHealthEngine(handlers.NewHealth())
+	engine := newHealthEngine(handlers.NewHealthHandler())
 
 	recorder := testutils.Perform(t, engine, http.MethodGet, "/health", nil, nil)
 	testutils.RequireStatus(t, recorder, http.StatusOK)
@@ -48,7 +48,7 @@ func TestLiveness(t *testing.T) {
 }
 
 func TestReadinessWithoutChecks(t *testing.T) {
-	engine := newHealthEngine(handlers.NewHealth())
+	engine := newHealthEngine(handlers.NewHealthHandler())
 
 	recorder := testutils.Perform(t, engine, http.MethodGet, "/ready", nil, nil)
 	testutils.RequireStatus(t, recorder, http.StatusOK)
@@ -63,14 +63,14 @@ func TestReadinessWithoutChecks(t *testing.T) {
 }
 
 func TestReadinessWithHealthyChecks(t *testing.T) {
-	engine := newHealthEngine(handlers.NewHealth(fakeCheck{name: "postgres"}))
+	engine := newHealthEngine(handlers.NewHealthHandler(fakeCheck{name: "postgres"}))
 
 	recorder := testutils.Perform(t, engine, http.MethodGet, "/ready", nil, nil)
 	testutils.RequireStatus(t, recorder, http.StatusOK)
 }
 
 func TestReadinessReportsFailedCheckNamesOnly(t *testing.T) {
-	engine := newHealthEngine(handlers.NewHealth(
+	engine := newHealthEngine(handlers.NewHealthHandler(
 		fakeCheck{name: "postgres"},
 		fakeCheck{name: "redis", err: errors.New("dial tcp 127.0.0.1:6379: connection refused")},
 	))
@@ -93,7 +93,7 @@ func TestReadinessReportsFailedCheckNamesOnly(t *testing.T) {
 }
 
 func TestReadinessKeepsCheckOrder(t *testing.T) {
-	engine := newHealthEngine(handlers.NewHealth(
+	engine := newHealthEngine(handlers.NewHealthHandler(
 		fakeCheck{name: "postgres", err: errors.New("down")},
 		fakeCheck{name: "redis", err: errors.New("down")},
 	))

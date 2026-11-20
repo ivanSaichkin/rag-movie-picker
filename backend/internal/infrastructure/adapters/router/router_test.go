@@ -39,15 +39,15 @@ func (stubAuthService) Refresh(context.Context, string) (models.Session, error) 
 
 func (stubAuthService) Logout(context.Context, string) error { return nil }
 
-func (stubAuthService) Me(context.Context, uuid.UUID) (models.User, error) {
+func (stubAuthService) CurrentUser(context.Context, uuid.UUID) (models.User, error) {
 	return models.User{}, nil
 }
 
 type stubIssuer struct{}
 
-func (stubIssuer) IssueAccess(uuid.UUID) (string, int, error) { return "token", 60, nil }
+func (stubIssuer) IssueAccessToken(uuid.UUID) (string, int, error) { return "token", 60, nil }
 
-func (stubIssuer) ParseAccess(string) (uuid.UUID, error) {
+func (stubIssuer) ParseAccessToken(string) (uuid.UUID, error) {
 	return uuid.Nil, rules.ErrUnauthenticated
 }
 
@@ -56,8 +56,8 @@ func newTestRouter() http.Handler {
 
 	return router.New(router.Params{
 		Logger:        logger,
-		Health:        handlers.NewHealth(),
-		Auth:          handlers.NewAuth(stubAuthService{}, false),
+		Health:        handlers.NewHealthHandler(),
+		Auth:          handlers.NewAuthHandler(stubAuthService{}, false),
 		Authenticate:  middleware.Authenticate(stubIssuer{}),
 		AllowedOrigin: testOrigin,
 	})

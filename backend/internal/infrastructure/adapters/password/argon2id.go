@@ -18,18 +18,18 @@ const (
 	version    = 19
 )
 
-// Hasher implements the password hashing contract with the Argon2id PHC string
+// Argon2idHasher implements the password hashing contract with the Argon2id PHC string
 // format, so that the cost parameters travel with every hash.
-type Hasher struct {
+type Argon2idHasher struct {
 	iterations  uint32
 	memoryKiB   uint32
 	parallelism uint8
 }
 
-// New builds a hasher. The memory is passed in mebibytes for configuration
+// NewArgon2idHasher builds a hasher. The memory is passed in mebibytes for configuration
 // readability and converted to the kibibytes required by Argon2.
-func New(iterations, memoryMiB uint32, parallelism uint8) *Hasher {
-	return &Hasher{
+func NewArgon2idHasher(iterations, memoryMiB uint32, parallelism uint8) *Argon2idHasher {
+	return &Argon2idHasher{
 		iterations:  iterations,
 		memoryKiB:   memoryMiB * 1024,
 		parallelism: parallelism,
@@ -37,7 +37,7 @@ func New(iterations, memoryMiB uint32, parallelism uint8) *Hasher {
 }
 
 // Hash returns a salted PHC string.
-func (h *Hasher) Hash(password string) (string, error) {
+func (h *Argon2idHasher) Hash(password string) (string, error) {
 	salt := make([]byte, saltLength)
 	if _, err := rand.Read(salt); err != nil {
 		return "", fmt.Errorf("read salt: %w", err)
@@ -55,7 +55,7 @@ func (h *Hasher) Hash(password string) (string, error) {
 }
 
 // Verify compares the password with the stored hash in constant time.
-func (h *Hasher) Verify(password, encoded string) (bool, error) {
+func (h *Argon2idHasher) Verify(password, encoded string) (bool, error) {
 	params, salt, key, err := decode(encoded)
 	if err != nil {
 		return false, err

@@ -19,31 +19,31 @@ import (
 
 const refreshTokenBytes = 32
 
-// Service implements ports.AuthService.
-type Service struct {
+// AuthenticationService implements ports.AuthenticationService.
+type AuthenticationService struct {
 	users      ports.UserRepository
 	tokens     ports.RefreshTokenRepository
 	hasher     ports.PasswordHasher
-	issuer     ports.TokenIssuer
+	issuer     ports.AccessTokenIssuer
 	refreshTTL time.Duration
 	now        func() time.Time
 	dummyHash  string
 }
 
-// New builds the service. The dummy hash keeps the login timing similar for
+// NewAuthenticationService builds the service. The dummy hash keeps the login timing similar for
 // known and unknown emails: it is verified when the account does not exist.
-func New(
+func NewAuthenticationService(
 	users ports.UserRepository,
 	tokens ports.RefreshTokenRepository,
 	hasher ports.PasswordHasher,
-	issuer ports.TokenIssuer,
+	issuer ports.AccessTokenIssuer,
 	refreshTTL time.Duration,
-) (*Service, error) {
+) (*AuthenticationService, error) {
 	dummyHash, err := hasher.Hash("dummy-password-for-timing")
 	if err != nil {
 		return nil, fmt.Errorf("hash dummy password: %w", err)
 	}
-	return &Service{
+	return &AuthenticationService{
 		users:      users,
 		tokens:     tokens,
 		hasher:     hasher,
@@ -55,7 +55,7 @@ func New(
 }
 
 // Register creates an account and starts a session.
-func (s *Service) Register(ctx context.Context, email, password string) (models.Session, error) {
+func (s *AuthenticationService) Register(ctx context.Context, email, password string) (models.Session, error) {
 	normalized := rules.NormalizeEmail(email)
 	if err := rules.ValidateEmail(normalized); err != nil {
 		return models.Session{}, err
@@ -78,13 +78,13 @@ func (s *Service) Register(ctx context.Context, email, password string) (models.
 }
 
 // Login verifies the credentials and starts a session.
-func (s *Service) Login(ctx context.Context, email, password string) (models.Session, error) {
+func (s *AuthenticationService) Login(ctx context.Context, email, password string) (models.Session, error) {
 	normalized := rules.NormalizeEmail(email)
 	if normalized == "" || password == "" {
 		return models.Session{}, &rules.ValidationError{Message: "Укажите адрес электронной почты и пароль."}
 	}
 
-	user, err := s.users.ByEmail(ctx, normalized)
+	user, err := s.users.FindByEmail(ctx, normalized)
 	if err != nil {
 		if errors.Is(err, rules.ErrNotFound) {
 			if _, verifyErr := s.hasher.Verify(password, s.dummyHash); verifyErr != nil {
@@ -107,8 +107,8 @@ func (s *Service) Login(ctx context.Context, email, password string) (models.Ses
 }
 
 // Refresh rotates the refresh token and returns a new session.
-func (s *Service) Refresh(ctx context.Context, refreshToken string) (models.Session, error) {
-	stored, err := s.tokens.ByHash(ctx, hashToken(refreshToken))
+func (s *AuthenticationService) Refresh(ctx context.Context, refreshToken string) (models.Session, error) {
+	stored, err := s.tokens.FindByHash(ctx, hashToken(refreshToken))
 	if err != nil {
 		if errors.Is(err, rules.ErrNotFound) {
 			return models.Session{}, rules.ErrUnauthenticated
@@ -117,7 +117,7 @@ func (s *Service) Refresh(ctx context.Context, refreshToken string) (models.Sess
 	}
 
 	now := s.now()
-	if stored.Revoked() {
+	if stored.IsRevoked() {
 		// A rotated token was presented again: treat it as stolen and revoke
 		// every token of the family.
 		if _, err := s.tokens.RevokeFamily(ctx, stored.FamilyID); err != nil {
@@ -141,7 +141,7 @@ func (s *Service) Refresh(ctx context.Context, refreshToken string) (models.Sess
 		return models.Session{}, rules.ErrUnauthenticated
 	}
 
-	user, err := s.users.ByID(ctx, stored.UserID)
+	user, err := s.users.FindByID(ctx, stored.UserID)
 	if err != nil {
 		if errors.Is(err, rules.ErrNotFound) {
 			return models.Session{}, rules.ErrUnauthenticated
@@ -154,12 +154,12 @@ func (s *Service) Refresh(ctx context.Context, refreshToken string) (models.Sess
 
 // Logout revokes the refresh token. It is idempotent: an unknown or already
 // revoked token is not an error.
-func (s *Service) Logout(ctx context.Context, refreshToken string) error {
+func (s *AuthenticationService) Logout(ctx context.Context, refreshToken string) error {
 	if refreshToken == "" {
 		return nil
 	}
 
-	stored, err := s.tokens.ByHash(ctx, hashToken(refreshToken))
+	stored, err := s.tokens.FindByHash(ctx, hashToken(refreshToken))
 	if err != nil {
 		if errors.Is(err, rules.ErrNotFound) {
 			return nil
@@ -172,12 +172,12 @@ func (s *Service) Logout(ctx context.Context, refreshToken string) error {
 	return nil
 }
 
-// Me returns the account of the authenticated user.
-func (s *Service) Me(ctx context.Context, userID uuid.UUID) (models.User, error) {
-	return s.users.ByID(ctx, userID)
+// CurrentUser returns the account of the authenticated user.
+func (s *AuthenticationService) CurrentUser(ctx context.Context, userID uuid.UUID) (models.User, error) {
+	return s.users.FindByID(ctx, userID)
 }
 
-func (s *Service) newSession(ctx context.Context, user models.User, familyID uuid.UUID) (models.Session, error) {
+func (s *AuthenticationService) newSession(ctx context.Context, user models.User, familyID uuid.UUID) (models.Session, error) {
 	refreshToken, err := generateRefreshToken()
 	if err != nil {
 		return models.Session{}, err
@@ -193,17 +193,17 @@ func (s *Service) newSession(ctx context.Context, user models.User, familyID uui
 		return models.Session{}, err
 	}
 
-	accessToken, expiresIn, err := s.issuer.IssueAccess(user.ID)
+	accessToken, expiresIn, err := s.issuer.IssueAccessToken(user.ID)
 	if err != nil {
 		return models.Session{}, err
 	}
 
 	return models.Session{
-		User:             user,
-		AccessToken:      accessToken,
-		AccessExpiresIn:  expiresIn,
-		RefreshToken:     refreshToken,
-		RefreshExpiresAt: expiresAt,
+		User:                  user,
+		AccessToken:           accessToken,
+		AccessTokenExpiresIn:  expiresIn,
+		RefreshToken:          refreshToken,
+		RefreshTokenExpiresAt: expiresAt,
 	}, nil
 }
 

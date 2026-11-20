@@ -13,20 +13,20 @@ import (
 	"github.com/ivanSaichkin/rag-movie-picker/backend/internal/interfaces/http/server/middleware"
 )
 
-// Auth serves the authentication endpoints.
-type Auth struct {
-	service       ports.AuthService
+// AuthHandler serves the authentication endpoints.
+type AuthHandler struct {
+	service       ports.AuthenticationService
 	secureCookies bool
 }
 
-// NewAuth builds the authentication handler. The refresh cookie lifetime comes
+// NewAuthHandler builds the authentication handler. The refresh cookie lifetime comes
 // from the session itself, so the handler does not need the TTL separately.
-func NewAuth(service ports.AuthService, secureCookies bool) *Auth {
-	return &Auth{service: service, secureCookies: secureCookies}
+func NewAuthHandler(service ports.AuthenticationService, secureCookies bool) *AuthHandler {
+	return &AuthHandler{service: service, secureCookies: secureCookies}
 }
 
 // Register creates an account and starts a session.
-func (h *Auth) Register(c *gin.Context) {
+func (h *AuthHandler) Register(c *gin.Context) {
 	var credentials dto.AuthCredentials
 	if !bindJSON(c, &credentials) {
 		return
@@ -41,7 +41,7 @@ func (h *Auth) Register(c *gin.Context) {
 }
 
 // Login verifies the credentials and starts a session.
-func (h *Auth) Login(c *gin.Context) {
+func (h *AuthHandler) Login(c *gin.Context) {
 	var credentials dto.AuthCredentials
 	if !bindJSON(c, &credentials) {
 		return
@@ -56,7 +56,7 @@ func (h *Auth) Login(c *gin.Context) {
 }
 
 // Refresh rotates the refresh token from the cookie.
-func (h *Auth) Refresh(c *gin.Context) {
+func (h *AuthHandler) Refresh(c *gin.Context) {
 	refreshToken, found := refreshTokenFromCookie(c)
 	if !found {
 		dto.Abort(c, dto.CodeUnauthenticated, "Сессия не найдена.")
@@ -69,15 +69,15 @@ func (h *Auth) Refresh(c *gin.Context) {
 		return
 	}
 
-	setRefreshCookie(c, session.RefreshToken, session.RefreshExpiresAt, h.secureCookies)
+	setRefreshCookie(c, session.RefreshToken, session.RefreshTokenExpiresAt, h.secureCookies)
 	c.JSON(http.StatusOK, dto.RefreshResponse{
-		AccessToken: session.AccessToken,
-		ExpiresIn:   session.AccessExpiresIn,
+		AccessToken:          session.AccessToken,
+		AccessTokenExpiresIn: session.AccessTokenExpiresIn,
 	})
 }
 
 // Logout revokes the refresh token and clears the cookie.
-func (h *Auth) Logout(c *gin.Context) {
+func (h *AuthHandler) Logout(c *gin.Context) {
 	refreshToken, _ := refreshTokenFromCookie(c)
 	if err := h.service.Logout(c.Request.Context(), refreshToken); err != nil {
 		h.respondError(c, err, "logout")
@@ -88,15 +88,15 @@ func (h *Auth) Logout(c *gin.Context) {
 	c.Status(http.StatusNoContent)
 }
 
-// Me returns the account of the authenticated user.
-func (h *Auth) Me(c *gin.Context) {
+// CurrentUser returns the account of the authenticated user.
+func (h *AuthHandler) CurrentUser(c *gin.Context) {
 	userID, ok := middleware.UserIDFrom(c)
 	if !ok {
 		dto.Abort(c, dto.CodeUnauthenticated, "Требуется авторизация.")
 		return
 	}
 
-	user, err := h.service.Me(c.Request.Context(), userID)
+	user, err := h.service.CurrentUser(c.Request.Context(), userID)
 	if err != nil {
 		h.respondError(c, err, "me")
 		return
@@ -105,22 +105,22 @@ func (h *Auth) Me(c *gin.Context) {
 	c.JSON(http.StatusOK, dto.UserResponse{ID: user.ID, Email: user.Email, CreatedAt: user.CreatedAt})
 }
 
-func (h *Auth) respondSession(c *gin.Context, status int, session models.Session) {
-	setRefreshCookie(c, session.RefreshToken, session.RefreshExpiresAt, h.secureCookies)
+func (h *AuthHandler) respondSession(c *gin.Context, status int, session models.Session) {
+	setRefreshCookie(c, session.RefreshToken, session.RefreshTokenExpiresAt, h.secureCookies)
 	c.JSON(status, dto.AuthResponse{
 		User: dto.UserResponse{
 			ID:        session.User.ID,
 			Email:     session.User.Email,
 			CreatedAt: session.User.CreatedAt,
 		},
-		AccessToken: session.AccessToken,
-		ExpiresIn:   session.AccessExpiresIn,
+		AccessToken:          session.AccessToken,
+		AccessTokenExpiresIn: session.AccessTokenExpiresIn,
 	})
 }
 
 // respondError maps domain errors to the API envelope and keeps everything else
 // in the log.
-func (h *Auth) respondError(c *gin.Context, err error, action string) {
+func (h *AuthHandler) respondError(c *gin.Context, err error, action string) {
 	var validationErr *rules.ValidationError
 	switch {
 	case errors.As(err, &validationErr):

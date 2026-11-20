@@ -20,7 +20,7 @@ func RateLimit(store ports.Cache, prefix string, limit int64, window time.Durati
 		windowStart := now.Truncate(window)
 		key := fmt.Sprintf("ratelimit:%s:%s:%d", prefix, c.ClientIP(), windowStart.Unix())
 
-		count, err := store.Incr(c.Request.Context(), key, window)
+		count, err := store.Increment(c.Request.Context(), key, window)
 		if err != nil {
 			LoggerFrom(c).Warn("rate limit cache failed", "prefix", prefix, "error", err)
 			c.Next()

@@ -57,26 +57,26 @@ type RateLimitConfig struct {
 // RedisConfig describes the optional Redis connection. An empty address means
 // that the in-memory implementation is used.
 type RedisConfig struct {
-	Addr     string
+	Address  string
 	Password string
-	DB       int
+	Database int
 	Timeout  time.Duration
 }
 
 // Config is the runtime configuration of the API service.
 type Config struct {
-	HTTPAddr        string
-	LogLevel        slog.Level
-	DatabaseURL     string
-	PGMaxConns      int32
-	AllowedOrigin   string
-	JWTSecret       string
-	AccessTokenTTL  time.Duration
-	RefreshTokenTTL time.Duration
-	CookieSecure    bool
-	Argon2          Argon2Config
-	RateLimit       RateLimitConfig
-	Redis           RedisConfig
+	HTTPAddress            string
+	LogLevel               slog.Level
+	DatabaseURL            string
+	PostgresMaxConnections int32
+	AllowedOrigin          string
+	JWTSecret              string
+	AccessTokenTTL         time.Duration
+	RefreshTokenTTL        time.Duration
+	CookieSecure           bool
+	Argon2                 Argon2Config
+	RateLimit              RateLimitConfig
+	Redis                  RedisConfig
 }
 
 // Load reads the configuration from the environment. It contains only the
@@ -84,12 +84,12 @@ type Config struct {
 // with their consumers so that no configuration stays unused.
 func Load() (Config, error) {
 	cfg := Config{
-		HTTPAddr:        defaultHTTPAddr,
-		LogLevel:        defaultLogLevel,
-		PGMaxConns:      defaultPGMaxConns,
-		AllowedOrigin:   defaultAllowedOrigin,
-		AccessTokenTTL:  defaultAccessTokenTTL,
-		RefreshTokenTTL: defaultRefreshTokenTTL,
+		HTTPAddress:            defaultHTTPAddr,
+		LogLevel:               defaultLogLevel,
+		PostgresMaxConnections: defaultPGMaxConns,
+		AllowedOrigin:          defaultAllowedOrigin,
+		AccessTokenTTL:         defaultAccessTokenTTL,
+		RefreshTokenTTL:        defaultRefreshTokenTTL,
 		Argon2: Argon2Config{
 			Iterations:  defaultArgon2Iterations,
 			MemoryMiB:   defaultArgon2MemoryMiB,
@@ -100,7 +100,7 @@ func Load() (Config, error) {
 			RegisterPerHour:  defaultRateLimitRegisterPerHour,
 			RefreshPerMinute: defaultRateLimitRefreshPerMinute,
 		},
-		Redis: RedisConfig{DB: redisDefaultDB, Timeout: defaultRedisTimeout},
+		Redis: RedisConfig{Database: redisDefaultDB, Timeout: defaultRedisTimeout},
 	}
 
 	if err := loadHTTP(&cfg); err != nil {
@@ -127,9 +127,9 @@ func Load() (Config, error) {
 
 func loadHTTP(cfg *Config) error {
 	if raw, ok := os.LookupEnv("HTTP_ADDR"); ok {
-		cfg.HTTPAddr = strings.TrimSpace(raw)
+		cfg.HTTPAddress = strings.TrimSpace(raw)
 	}
-	if err := validateAddr(cfg.HTTPAddr); err != nil {
+	if err := validateAddr(cfg.HTTPAddress); err != nil {
 		return fmt.Errorf("HTTP_ADDR: %w", err)
 	}
 
@@ -156,7 +156,7 @@ func loadDatabase(cfg *Config) error {
 			return err
 		}
 		//nolint:gosec // G115: maxConns is validated to fit into int32 above.
-		cfg.PGMaxConns = int32(maxConns)
+		cfg.PostgresMaxConnections = int32(maxConns)
 	}
 	return nil
 }
@@ -251,7 +251,7 @@ func loadRateLimit(cfg *Config) error {
 }
 
 func loadRedis(cfg *Config) error {
-	cfg.Redis.Addr = strings.TrimSpace(os.Getenv("REDIS_ADDR"))
+	cfg.Redis.Address = strings.TrimSpace(os.Getenv("REDIS_ADDR"))
 	cfg.Redis.Password = os.Getenv("REDIS_PASSWORD")
 
 	if raw, ok := os.LookupEnv("REDIS_DB"); ok {
@@ -259,7 +259,7 @@ func loadRedis(cfg *Config) error {
 		if err != nil {
 			return err
 		}
-		cfg.Redis.DB = value
+		cfg.Redis.Database = value
 	}
 	timeout, err := secondsFromEnv("REDIS_TIMEOUT_SECONDS", cfg.Redis.Timeout, 1, 60)
 	if err != nil {

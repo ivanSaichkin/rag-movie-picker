@@ -18,7 +18,7 @@ import (
 func newRateLimitEngine(limit int64) *gin.Engine {
 	gin.SetMode(gin.TestMode)
 	engine := gin.New()
-	engine.Use(middleware.RateLimit(cache.NewMemory(), "login", limit, time.Minute))
+	engine.Use(middleware.RateLimit(cache.NewInMemoryCache(), "login", limit, time.Minute))
 	engine.GET("/resource", func(c *gin.Context) { c.Status(http.StatusOK) })
 	return engine
 }
@@ -97,7 +97,7 @@ func (failingCache) Set(context.Context, string, []byte, time.Duration) error {
 	return errors.New("cache is down")
 }
 
-func (failingCache) Incr(context.Context, string, time.Duration) (int64, error) {
+func (failingCache) Increment(context.Context, string, time.Duration) (int64, error) {
 	return 0, errors.New("cache is down")
 }
 

@@ -25,7 +25,7 @@ func (failingCache) Set(context.Context, string, []byte, time.Duration) error {
 	return errCacheDown
 }
 
-func (failingCache) Incr(context.Context, string, time.Duration) (int64, error) {
+func (failingCache) Increment(context.Context, string, time.Duration) (int64, error) {
 	return 0, errCacheDown
 }
 
@@ -37,8 +37,8 @@ func TestFallbackUsesSecondaryWhenPrimaryFails(t *testing.T) {
 	var logs bytes.Buffer
 	logger := slog.New(slog.NewJSONHandler(&logs, nil))
 
-	memory := cache.NewMemory()
-	store := cache.NewFallback(failingCache{}, memory, logger)
+	memory := cache.NewInMemoryCache()
+	store := cache.NewFallbackCache(failingCache{}, memory, logger)
 	ctx := context.Background()
 
 	if err := store.Set(ctx, "key", []byte("value"), time.Minute); err != nil {
@@ -49,13 +49,13 @@ func TestFallbackUsesSecondaryWhenPrimaryFails(t *testing.T) {
 		t.Fatalf("Get() = %q, %t, %v", value, found, err)
 	}
 
-	first, err := store.Incr(ctx, "counter", time.Minute)
+	first, err := store.Increment(ctx, "counter", time.Minute)
 	if err != nil || first != 1 {
-		t.Fatalf("Incr() = %d, %v", first, err)
+		t.Fatalf("Increment() = %d, %v", first, err)
 	}
-	second, err := store.Incr(ctx, "counter", time.Minute)
+	second, err := store.Increment(ctx, "counter", time.Minute)
 	if err != nil || second != 2 {
-		t.Fatalf("Incr() = %d, %v", second, err)
+		t.Fatalf("Increment() = %d, %v", second, err)
 	}
 
 	if err := store.Delete(ctx, "key"); err != nil {
@@ -73,9 +73,9 @@ func TestFallbackUsesSecondaryWhenPrimaryFails(t *testing.T) {
 }
 
 func TestFallbackPrefersPrimary(t *testing.T) {
-	primary := cache.NewMemory()
-	secondary := cache.NewMemory()
-	store := cache.NewFallback(primary, secondary, slog.New(slog.NewJSONHandler(&bytes.Buffer{}, nil)))
+	primary := cache.NewInMemoryCache()
+	secondary := cache.NewInMemoryCache()
+	store := cache.NewFallbackCache(primary, secondary, slog.New(slog.NewJSONHandler(&bytes.Buffer{}, nil)))
 	ctx := context.Background()
 
 	if err := store.Set(ctx, "key", []byte("primary-value"), time.Minute); err != nil {

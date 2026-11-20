@@ -30,8 +30,8 @@ func TestLoadDefaults(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Load() error = %v", err)
 	}
-	if cfg.HTTPAddr != "127.0.0.1:8080" {
-		t.Fatalf("HTTPAddr = %q, want 127.0.0.1:8080", cfg.HTTPAddr)
+	if cfg.HTTPAddress != "127.0.0.1:8080" {
+		t.Fatalf("HTTPAddress = %q, want 127.0.0.1:8080", cfg.HTTPAddress)
 	}
 	if cfg.LogLevel != slog.LevelInfo {
 		t.Fatalf("LogLevel = %v, want info", cfg.LogLevel)
@@ -39,8 +39,8 @@ func TestLoadDefaults(t *testing.T) {
 	if cfg.DatabaseURL != testDatabaseURL {
 		t.Fatalf("DatabaseURL = %q", cfg.DatabaseURL)
 	}
-	if cfg.PGMaxConns != 10 {
-		t.Fatalf("PGMaxConns = %d, want 10", cfg.PGMaxConns)
+	if cfg.PostgresMaxConnections != 10 {
+		t.Fatalf("PostgresMaxConnections = %d, want 10", cfg.PostgresMaxConnections)
 	}
 	if cfg.AllowedOrigin != "http://127.0.0.1:8080" {
 		t.Fatalf("AllowedOrigin = %q", cfg.AllowedOrigin)
@@ -60,7 +60,7 @@ func TestLoadDefaults(t *testing.T) {
 	if cfg.RateLimit.AuthPerMinute != 10 || cfg.RateLimit.RegisterPerHour != 20 || cfg.RateLimit.RefreshPerMinute != 60 {
 		t.Fatalf("RateLimit defaults = %+v", cfg.RateLimit)
 	}
-	if cfg.Redis.Addr != "" || cfg.Redis.DB != 0 || cfg.Redis.Timeout != time.Second {
+	if cfg.Redis.Address != "" || cfg.Redis.Database != 0 || cfg.Redis.Timeout != time.Second {
 		t.Fatalf("Redis defaults = %+v", cfg.Redis)
 	}
 }
@@ -123,7 +123,7 @@ func TestLoadOverrides(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Load() error = %v", err)
 	}
-	if cfg.HTTPAddr != "0.0.0.0:9000" || cfg.LogLevel != slog.LevelWarn || cfg.PGMaxConns != 25 {
+	if cfg.HTTPAddress != "0.0.0.0:9000" || cfg.LogLevel != slog.LevelWarn || cfg.PostgresMaxConnections != 25 {
 		t.Fatalf("basic overrides = %+v", cfg)
 	}
 	if cfg.AllowedOrigin != "https://movies.example.com" {
@@ -141,7 +141,7 @@ func TestLoadOverrides(t *testing.T) {
 	if cfg.RateLimit != (config.RateLimitConfig{AuthPerMinute: 3, RegisterPerHour: 4, RefreshPerMinute: 5}) {
 		t.Fatalf("RateLimit = %+v", cfg.RateLimit)
 	}
-	if cfg.Redis != (config.RedisConfig{Addr: "127.0.0.1:6379", Password: "secret", DB: 2, Timeout: 5 * time.Second}) {
+	if cfg.Redis != (config.RedisConfig{Address: "127.0.0.1:6379", Password: "secret", Database: 2, Timeout: 5 * time.Second}) {
 		t.Fatalf("Redis = %+v", cfg.Redis)
 	}
 }

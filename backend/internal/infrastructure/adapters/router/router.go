@@ -24,8 +24,8 @@ type Limiters struct {
 // Params describes the handlers and middleware registered by the router.
 type Params struct {
 	Logger        *slog.Logger
-	Health        *handlers.Health
-	Auth          *handlers.Auth
+	Health        *handlers.HealthHandler
+	Auth          *handlers.AuthHandler
 	Authenticate  gin.HandlerFunc
 	AllowedOrigin string
 	Limiters      Limiters
@@ -69,7 +69,7 @@ func New(params Params) *gin.Engine {
 	auth.POST("/login", with(params.Limiters.Login, params.Auth.Login)...)
 	auth.POST("/refresh", with(params.Limiters.Refresh, params.Auth.Refresh)...)
 	auth.POST("/logout", params.Auth.Logout)
-	auth.GET("/me", with(params.Authenticate, params.Auth.Me)...)
+	auth.GET("/me", with(params.Authenticate, params.Auth.CurrentUser)...)
 
 	return engine
 }

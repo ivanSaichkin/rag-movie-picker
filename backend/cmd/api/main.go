@@ -33,7 +33,7 @@ func run() error {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
-	log.Info("api starting", "addr", cfg.HTTPAddr, "log_level", cfg.LogLevel.String())
+	log.Info("api starting", "addr", cfg.HTTPAddress, "log_level", cfg.LogLevel.String())
 
 	application, err := app.New(ctx, cfg, log)
 	if err != nil {

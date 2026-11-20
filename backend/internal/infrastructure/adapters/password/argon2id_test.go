@@ -9,8 +9,8 @@ import (
 
 // newHasher keeps the tests fast: the cost parameters are irrelevant for
 // correctness, only the format and verification matter.
-func newHasher() *password.Hasher {
-	return password.New(1, 8, 1)
+func newHasher() *password.Argon2idHasher {
+	return password.NewArgon2idHasher(1, 8, 1)
 }
 
 func TestHashAndVerify(t *testing.T) {

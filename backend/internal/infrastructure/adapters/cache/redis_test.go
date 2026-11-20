@@ -10,11 +10,11 @@ import (
 	"github.com/ivanSaichkin/rag-movie-picker/backend/internal/infrastructure/adapters/cache"
 )
 
-func newRedis(t *testing.T) (*cache.Redis, *miniredis.Miniredis) {
+func newRedis(t *testing.T) (*cache.RedisCache, *miniredis.Miniredis) {
 	t.Helper()
 
 	server := miniredis.RunT(t)
-	store := cache.NewRedis(server.Addr(), "", 0, time.Second)
+	store := cache.NewRedisCache(server.Addr(), "", 0, time.Second)
 	t.Cleanup(func() {
 		if err := store.Close(); err != nil {
 			t.Errorf("close redis: %v", err)
@@ -66,12 +66,12 @@ func TestRedisIncrSetsExpiryOnlyOnCreation(t *testing.T) {
 	ctx := context.Background()
 
 	for want := int64(1); want <= 3; want++ {
-		value, err := store.Incr(ctx, "counter", time.Minute)
+		value, err := store.Increment(ctx, "counter", time.Minute)
 		if err != nil {
-			t.Fatalf("Incr() error = %v", err)
+			t.Fatalf("Increment() error = %v", err)
 		}
 		if value != want {
-			t.Fatalf("Incr() = %d, want %d", value, want)
+			t.Fatalf("Increment() = %d, want %d", value, want)
 		}
 	}
 
@@ -84,16 +84,16 @@ func TestRedisIncrResetsAfterExpiry(t *testing.T) {
 	store, server := newRedis(t)
 	ctx := context.Background()
 
-	if _, err := store.Incr(ctx, "counter", time.Minute); err != nil {
-		t.Fatalf("Incr() error = %v", err)
+	if _, err := store.Increment(ctx, "counter", time.Minute); err != nil {
+		t.Fatalf("Increment() error = %v", err)
 	}
 	server.FastForward(2 * time.Minute)
 
-	value, err := store.Incr(ctx, "counter", time.Minute)
+	value, err := store.Increment(ctx, "counter", time.Minute)
 	if err != nil {
-		t.Fatalf("Incr() error = %v", err)
+		t.Fatalf("Increment() error = %v", err)
 	}
 	if value != 1 {
-		t.Fatalf("Incr() after window = %d, want 1", value)
+		t.Fatalf("Increment() after window = %d, want 1", value)
 	}
 }

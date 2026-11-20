@@ -17,21 +17,21 @@ type entry struct {
 	expiresAt time.Time
 }
 
-// Memory is an in-process cache. It is used when Redis is not configured and
+// InMemoryCache is an in-process cache. It is used when Redis is not configured and
 // as the fallback when Redis fails.
-type Memory struct {
+type InMemoryCache struct {
 	mu    sync.Mutex
 	items map[string]entry
 	ops   int
 }
 
-// NewMemory builds an empty in-memory cache.
-func NewMemory() *Memory {
-	return &Memory{items: make(map[string]entry)}
+// NewInMemoryCache builds an empty in-memory cache.
+func NewInMemoryCache() *InMemoryCache {
+	return &InMemoryCache{items: make(map[string]entry)}
 }
 
 // Get returns a copy of the value and reports whether the key is present.
-func (m *Memory) Get(_ context.Context, key string) ([]byte, bool, error) {
+func (m *InMemoryCache) Get(_ context.Context, key string) ([]byte, bool, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
@@ -47,7 +47,7 @@ func (m *Memory) Get(_ context.Context, key string) ([]byte, bool, error) {
 }
 
 // Set stores the value until the TTL elapses.
-func (m *Memory) Set(_ context.Context, key string, value []byte, ttl time.Duration) error {
+func (m *InMemoryCache) Set(_ context.Context, key string, value []byte, ttl time.Duration) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
@@ -56,8 +56,8 @@ func (m *Memory) Set(_ context.Context, key string, value []byte, ttl time.Durat
 	return nil
 }
 
-// Incr increments the counter and creates it with the TTL on the first call.
-func (m *Memory) Incr(_ context.Context, key string, ttl time.Duration) (int64, error) {
+// Increment increments the counter and creates it with the TTL on the first call.
+func (m *InMemoryCache) Increment(_ context.Context, key string, ttl time.Duration) (int64, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
@@ -80,7 +80,7 @@ func (m *Memory) Incr(_ context.Context, key string, ttl time.Duration) (int64, 
 }
 
 // Delete removes the key.
-func (m *Memory) Delete(_ context.Context, key string) error {
+func (m *InMemoryCache) Delete(_ context.Context, key string) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
@@ -90,7 +90,7 @@ func (m *Memory) Delete(_ context.Context, key string) error {
 
 // maybeSweep drops expired entries from time to time so that a stream of
 // unique keys does not grow the map without bound. The caller holds the lock.
-func (m *Memory) maybeSweep() {
+func (m *InMemoryCache) maybeSweep() {
 	m.ops++
 	if m.ops < sweepEvery {
 		return

@@ -23,20 +23,20 @@ type claims struct {
 	jwt.RegisteredClaims
 }
 
-// Issuer signs access tokens with HS256.
-type Issuer struct {
+// AccessTokenIssuer signs access tokens with HS256.
+type AccessTokenIssuer struct {
 	secret []byte
 	ttl    time.Duration
 	now    func() time.Time
 }
 
-// New builds the issuer. The secret is validated by the configuration loader.
-func New(secret string, ttl time.Duration) *Issuer {
-	return &Issuer{secret: []byte(secret), ttl: ttl, now: time.Now}
+// NewAccessTokenIssuer builds the issuer. The secret is validated by the configuration loader.
+func NewAccessTokenIssuer(secret string, ttl time.Duration) *AccessTokenIssuer {
+	return &AccessTokenIssuer{secret: []byte(secret), ttl: ttl, now: time.Now}
 }
 
-// IssueAccess returns a signed token and its lifetime in seconds.
-func (i *Issuer) IssueAccess(userID uuid.UUID) (string, int, error) {
+// IssueAccessToken returns a signed token and its lifetime in seconds.
+func (i *AccessTokenIssuer) IssueAccessToken(userID uuid.UUID) (string, int, error) {
 	now := i.now()
 	payload := claims{
 		Type: accessTokenType,
@@ -55,8 +55,8 @@ func (i *Issuer) IssueAccess(userID uuid.UUID) (string, int, error) {
 	return signed, int(i.ttl.Seconds()), nil
 }
 
-// ParseAccess verifies the signature, the issuer, the token type and the expiry.
-func (i *Issuer) ParseAccess(raw string) (uuid.UUID, error) {
+// ParseAccessToken verifies the signature, the issuer, the token type and the expiry.
+func (i *AccessTokenIssuer) ParseAccessToken(raw string) (uuid.UUID, error) {
 	parsed, err := jwt.ParseWithClaims(raw, &claims{}, func(*jwt.Token) (any, error) {
 		return i.secret, nil
 	},

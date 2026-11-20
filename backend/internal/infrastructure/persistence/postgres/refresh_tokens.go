@@ -13,19 +13,19 @@ import (
 	"github.com/ivanSaichkin/rag-movie-picker/backend/internal/domain/rules"
 )
 
-// RefreshTokens stores refresh tokens in PostgreSQL.
-type RefreshTokens struct {
+// RefreshTokenRepository stores refresh tokens in PostgreSQL.
+type RefreshTokenRepository struct {
 	pool *pgxpool.Pool
 }
 
-// NewRefreshTokens builds the refresh token repository.
-func NewRefreshTokens(pool *pgxpool.Pool) *RefreshTokens {
-	return &RefreshTokens{pool: pool}
+// NewRefreshTokenRepository builds the refresh token repository.
+func NewRefreshTokenRepository(pool *pgxpool.Pool) *RefreshTokenRepository {
+	return &RefreshTokenRepository{pool: pool}
 }
 
 // Create inserts a refresh token and returns the generated identifier and
 // creation time.
-func (r *RefreshTokens) Create(ctx context.Context, token models.RefreshToken) (models.RefreshToken, error) {
+func (r *RefreshTokenRepository) Create(ctx context.Context, token models.RefreshToken) (models.RefreshToken, error) {
 	const query = `
 		INSERT INTO refresh_tokens (user_id, token_hash, family_id, expires_at)
 		VALUES ($1, $2, $3, $4)
@@ -43,8 +43,8 @@ func (r *RefreshTokens) Create(ctx context.Context, token models.RefreshToken) (
 	return token, nil
 }
 
-// ByHash finds a refresh token by the hash stored in the database.
-func (r *RefreshTokens) ByHash(ctx context.Context, hash []byte) (models.RefreshToken, error) {
+// FindByHash finds a refresh token by the hash stored in the database.
+func (r *RefreshTokenRepository) FindByHash(ctx context.Context, hash []byte) (models.RefreshToken, error) {
 	const query = `
 		SELECT id, user_id, token_hash, family_id, expires_at, revoked_at, created_at
 		FROM refresh_tokens
@@ -67,7 +67,7 @@ func (r *RefreshTokens) ByHash(ctx context.Context, hash []byte) (models.Refresh
 }
 
 // Revoke marks one token as revoked. It reports whether the token was active.
-func (r *RefreshTokens) Revoke(ctx context.Context, id uuid.UUID) (bool, error) {
+func (r *RefreshTokenRepository) Revoke(ctx context.Context, id uuid.UUID) (bool, error) {
 	const query = `
 		UPDATE refresh_tokens
 		SET revoked_at = now()
@@ -82,7 +82,7 @@ func (r *RefreshTokens) Revoke(ctx context.Context, id uuid.UUID) (bool, error) 
 
 // RevokeFamily revokes every active token of a rotation family. It reports how
 // many tokens were revoked.
-func (r *RefreshTokens) RevokeFamily(ctx context.Context, familyID uuid.UUID) (int64, error) {
+func (r *RefreshTokenRepository) RevokeFamily(ctx context.Context, familyID uuid.UUID) (int64, error) {
 	const query = `
 		UPDATE refresh_tokens
 		SET revoked_at = now()
@@ -95,8 +95,8 @@ func (r *RefreshTokens) RevokeFamily(ctx context.Context, familyID uuid.UUID) (i
 	return tag.RowsAffected(), nil
 }
 
-// DeleteStale removes tokens whose expiry or revocation is older than cutoff.
-func (r *RefreshTokens) DeleteStale(ctx context.Context, cutoff time.Time) (int64, error) {
+// DeleteExpired removes tokens whose expiry or revocation is older than cutoff.
+func (r *RefreshTokenRepository) DeleteExpired(ctx context.Context, cutoff time.Time) (int64, error) {
 	const query = `
 		DELETE FROM refresh_tokens
 		WHERE expires_at < $1 OR revoked_at < $1`

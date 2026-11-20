@@ -9,7 +9,7 @@ import (
 )
 
 func TestMemorySetGetDelete(t *testing.T) {
-	store := cache.NewMemory()
+	store := cache.NewInMemoryCache()
 	ctx := context.Background()
 
 	if err := store.Set(ctx, "key", []byte("value"), time.Minute); err != nil {
@@ -33,7 +33,7 @@ func TestMemorySetGetDelete(t *testing.T) {
 }
 
 func TestMemoryExpiresValues(t *testing.T) {
-	store := cache.NewMemory()
+	store := cache.NewInMemoryCache()
 	ctx := context.Background()
 
 	if err := store.Set(ctx, "key", []byte("value"), time.Millisecond); err != nil {
@@ -47,35 +47,35 @@ func TestMemoryExpiresValues(t *testing.T) {
 }
 
 func TestMemoryIncrCountsWithinWindow(t *testing.T) {
-	store := cache.NewMemory()
+	store := cache.NewInMemoryCache()
 	ctx := context.Background()
 
 	for want := int64(1); want <= 3; want++ {
-		value, err := store.Incr(ctx, "counter", time.Minute)
+		value, err := store.Increment(ctx, "counter", time.Minute)
 		if err != nil {
-			t.Fatalf("Incr() error = %v", err)
+			t.Fatalf("Increment() error = %v", err)
 		}
 		if value != want {
-			t.Fatalf("Incr() = %d, want %d", value, want)
+			t.Fatalf("Increment() = %d, want %d", value, want)
 		}
 	}
 }
 
 func TestMemoryIncrResetsAfterWindow(t *testing.T) {
-	store := cache.NewMemory()
+	store := cache.NewInMemoryCache()
 	ctx := context.Background()
 
-	first, err := store.Incr(ctx, "counter", 10*time.Millisecond)
+	first, err := store.Increment(ctx, "counter", 10*time.Millisecond)
 	if err != nil || first != 1 {
-		t.Fatalf("Incr() = %d, %v", first, err)
+		t.Fatalf("Increment() = %d, %v", first, err)
 	}
 	time.Sleep(20 * time.Millisecond)
 
-	value, err := store.Incr(ctx, "counter", 10*time.Millisecond)
+	value, err := store.Increment(ctx, "counter", 10*time.Millisecond)
 	if err != nil {
-		t.Fatalf("Incr() error = %v", err)
+		t.Fatalf("Increment() error = %v", err)
 	}
 	if value != 1 {
-		t.Fatalf("Incr() after window = %d, want 1", value)
+		t.Fatalf("Increment() after window = %d, want 1", value)
 	}
 }

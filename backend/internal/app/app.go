@@ -29,7 +29,7 @@ type App struct {
 	logger     *slog.Logger
 	pool       *pgxpool.Pool
 	server     *server.Server
-	cleaner    *cleanup.RefreshTokens
+	cleaner    *cleanup.RefreshTokenCleaner
 	closeCache func() error
 }
 
@@ -37,33 +37,33 @@ type App struct {
 // fails if the database is unreachable, so that a misconfigured process does
 // not report itself as running.
 func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, error) {
-	pool, err := postgres.NewPool(ctx, cfg.DatabaseURL, cfg.PGMaxConns)
+	pool, err := postgres.NewPool(ctx, cfg.DatabaseURL, cfg.PostgresMaxConnections)
 	if err != nil {
 		return nil, err
 	}
 
-	readiness, err := postgres.NewReadiness(pool)
+	readiness, err := postgres.NewReadinessCheck(pool)
 	if err != nil {
 		pool.Close()
 		return nil, err
 	}
 
-	users := postgres.NewUsers(pool)
-	tokens := postgres.NewRefreshTokens(pool)
+	users := postgres.NewUserRepository(pool)
+	tokens := postgres.NewRefreshTokenRepository(pool)
 
-	hasher := password.New(cfg.Argon2.Iterations, cfg.Argon2.MemoryMiB, cfg.Argon2.Parallelism)
-	issuer := token.New(cfg.JWTSecret, cfg.AccessTokenTTL)
+	hasher := password.NewArgon2idHasher(cfg.Argon2.Iterations, cfg.Argon2.MemoryMiB, cfg.Argon2.Parallelism)
+	issuer := token.NewAccessTokenIssuer(cfg.JWTSecret, cfg.AccessTokenTTL)
 
-	authService, err := auth.New(users, tokens, hasher, issuer, cfg.RefreshTokenTTL)
+	authService, err := auth.NewAuthenticationService(users, tokens, hasher, issuer, cfg.RefreshTokenTTL)
 	if err != nil {
 		pool.Close()
 		return nil, fmt.Errorf("build auth service: %w", err)
 	}
 
 	store, closeStore := buildCache(cfg, logger)
-	authHandler := handlers.NewAuth(authService, cfg.CookieSecure)
+	authHandler := handlers.NewAuthHandler(authService, cfg.CookieSecure)
 
-	health := handlers.NewHealth(readiness)
+	health := handlers.NewHealthHandler(readiness)
 	engine := router.New(router.Params{
 		Logger:        logger,
 		Health:        health,
@@ -80,8 +80,8 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 	return &App{
 		logger:     logger,
 		pool:       pool,
-		server:     server.New(cfg.HTTPAddr, engine, logger),
-		cleaner:    cleanup.NewRefreshTokens(tokens, logger),
+		server:     server.New(cfg.HTTPAddress, engine, logger),
+		cleaner:    cleanup.NewRefreshTokenCleaner(tokens, logger),
 		closeCache: closeStore,
 	}, nil
 }
@@ -113,13 +113,13 @@ func (a *App) Run(ctx context.Context) error {
 // buildCache selects Redis when it is configured and wraps it with the
 // in-memory fallback, so that Redis is a soft dependency.
 func buildCache(cfg config.Config, logger *slog.Logger) (ports.Cache, func() error) {
-	memory := cache.NewMemory()
-	if cfg.Redis.Addr == "" {
+	memory := cache.NewInMemoryCache()
+	if cfg.Redis.Address == "" {
 		logger.Info("cache: in-memory")
 		return memory, func() error { return nil }
 	}
 
-	redisCache := cache.NewRedis(cfg.Redis.Addr, cfg.Redis.Password, cfg.Redis.DB, cfg.Redis.Timeout)
-	logger.Info("cache: redis with in-memory fallback", "addr", cfg.Redis.Addr)
-	return cache.NewFallback(redisCache, memory, logger), redisCache.Close
+	redisCache := cache.NewRedisCache(cfg.Redis.Address, cfg.Redis.Password, cfg.Redis.Database, cfg.Redis.Timeout)
+	logger.Info("cache: redis with in-memory fallback", "addr", cfg.Redis.Address)
+	return cache.NewFallbackCache(redisCache, memory, logger), redisCache.Close
 }

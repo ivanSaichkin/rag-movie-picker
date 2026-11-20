@@ -20,7 +20,7 @@ const (
 
 // Authenticate verifies the access token and stores the user identifier in the
 // request context.
-func Authenticate(issuer ports.TokenIssuer) gin.HandlerFunc {
+func Authenticate(issuer ports.AccessTokenIssuer) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		raw, found := strings.CutPrefix(c.GetHeader(headerAuthKey), bearerPrefix)
 		if !found || raw == "" {
@@ -28,7 +28,7 @@ func Authenticate(issuer ports.TokenIssuer) gin.HandlerFunc {
 			return
 		}
 
-		userID, err := issuer.ParseAccess(raw)
+		userID, err := issuer.ParseAccessToken(raw)
 		if err != nil {
 			if errors.Is(err, rules.ErrTokenExpired) {
 				dto.Abort(c, dto.CodeTokenExpired, "Срок действия токена истёк.")

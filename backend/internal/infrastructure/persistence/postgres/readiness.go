@@ -15,30 +15,30 @@ type schemaVersionReader interface {
 	SchemaVersion(ctx context.Context) (uint, bool, error)
 }
 
-// Readiness verifies that PostgreSQL answers and that the schema is applied at
+// ReadinessCheck verifies that PostgreSQL answers and that the schema is applied at
 // the version embedded into the binary.
-type Readiness struct {
+type ReadinessCheck struct {
 	db     pinger
 	schema schemaVersionReader
 	latest uint
 }
 
-// NewReadiness builds the readiness check for PostgreSQL.
-func NewReadiness(pool *pgxpool.Pool) (*Readiness, error) {
+// NewReadinessCheck builds the readiness check for PostgreSQL.
+func NewReadinessCheck(pool *pgxpool.Pool) (*ReadinessCheck, error) {
 	latest, err := LatestVersion()
 	if err != nil {
 		return nil, err
 	}
-	return &Readiness{db: pool, schema: NewSchema(pool), latest: latest}, nil
+	return &ReadinessCheck{db: pool, schema: NewMigrationState(pool), latest: latest}, nil
 }
 
 // Name returns the check name reported by /ready.
-func (r *Readiness) Name() string {
+func (r *ReadinessCheck) Name() string {
 	return "postgres"
 }
 
 // Check reports connectivity, a clean and a current schema version.
-func (r *Readiness) Check(ctx context.Context) error {
+func (r *ReadinessCheck) Check(ctx context.Context) error {
 	if err := r.db.Ping(ctx); err != nil {
 		return fmt.Errorf("ping: %w", err)
 	}

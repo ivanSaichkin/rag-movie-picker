@@ -19,9 +19,9 @@ type fakeIssuer struct {
 	err    error
 }
 
-func (f fakeIssuer) IssueAccess(uuid.UUID) (string, int, error) { return "", 0, nil }
+func (f fakeIssuer) IssueAccessToken(uuid.UUID) (string, int, error) { return "", 0, nil }
 
-func (f fakeIssuer) ParseAccess(string) (uuid.UUID, error) { return f.userID, f.err }
+func (f fakeIssuer) ParseAccessToken(string) (uuid.UUID, error) { return f.userID, f.err }
 
 func newAuthEngine(issuer fakeIssuer) *gin.Engine {
 	gin.SetMode(gin.TestMode)

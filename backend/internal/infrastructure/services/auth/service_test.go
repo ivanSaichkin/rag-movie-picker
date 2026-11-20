@@ -44,11 +44,11 @@ func (f *fakeUsers) Create(_ context.Context, user models.User) (models.User, er
 	return user, nil
 }
 
-func (f *fakeUsers) ByEmail(context.Context, string) (models.User, error) {
+func (f *fakeUsers) FindByEmail(context.Context, string) (models.User, error) {
 	return f.byEmail, f.emailErr
 }
 
-func (f *fakeUsers) ByID(context.Context, uuid.UUID) (models.User, error) {
+func (f *fakeUsers) FindByID(context.Context, uuid.UUID) (models.User, error) {
 	return f.byID, f.idErr
 }
 
@@ -74,7 +74,7 @@ func (f *fakeTokens) Create(_ context.Context, token models.RefreshToken) (model
 	return token, nil
 }
 
-func (f *fakeTokens) ByHash(context.Context, []byte) (models.RefreshToken, error) {
+func (f *fakeTokens) FindByHash(context.Context, []byte) (models.RefreshToken, error) {
 	return f.stored, f.hashErr
 }
 
@@ -91,7 +91,7 @@ func (f *fakeTokens) RevokeFamily(_ context.Context, familyID uuid.UUID) (int64,
 	return 1, nil
 }
 
-func (f *fakeTokens) DeleteStale(context.Context, time.Time) (int64, error) { return 0, nil }
+func (f *fakeTokens) DeleteExpired(context.Context, time.Time) (int64, error) { return 0, nil }
 
 type fakeHasher struct {
 	hashResult   string
@@ -124,16 +124,16 @@ type fakeIssuer struct {
 	err error
 }
 
-func (fakeIssuer) IssueAccess(uuid.UUID) (string, int, error) { return "access-token", 900, nil }
+func (fakeIssuer) IssueAccessToken(uuid.UUID) (string, int, error) { return "access-token", 900, nil }
 
-func (f fakeIssuer) ParseAccess(string) (uuid.UUID, error) { return uuid.Nil, f.err }
+func (f fakeIssuer) ParseAccessToken(string) (uuid.UUID, error) { return uuid.Nil, f.err }
 
-func newService(t *testing.T, users *fakeUsers, tokens *fakeTokens, hasher *fakeHasher) *auth.Service {
+func newService(t *testing.T, users *fakeUsers, tokens *fakeTokens, hasher *fakeHasher) *auth.AuthenticationService {
 	t.Helper()
 
-	service, err := auth.New(users, tokens, hasher, fakeIssuer{}, testRefreshLifetime)
+	service, err := auth.NewAuthenticationService(users, tokens, hasher, fakeIssuer{}, testRefreshLifetime)
 	if err != nil {
-		t.Fatalf("auth.New() error = %v", err)
+		t.Fatalf("auth.NewAuthenticationService() error = %v", err)
 	}
 	return service
 }
@@ -164,10 +164,10 @@ func TestRegisterNormalizesEmailAndStartsSession(t *testing.T) {
 	if session.User.ID != testUserID {
 		t.Fatalf("session user id = %v", session.User.ID)
 	}
-	if session.AccessToken != "access-token" || session.AccessExpiresIn != 900 {
-		t.Fatalf("access token = %q, %d", session.AccessToken, session.AccessExpiresIn)
+	if session.AccessToken != "access-token" || session.AccessTokenExpiresIn != 900 {
+		t.Fatalf("access token = %q, %d", session.AccessToken, session.AccessTokenExpiresIn)
 	}
-	if session.RefreshToken == "" || session.RefreshExpiresAt.IsZero() {
+	if session.RefreshToken == "" || session.RefreshTokenExpiresAt.IsZero() {
 		t.Fatal("refresh token and expiry must be set")
 	}
 	if len(tokens.created) != 1 {
@@ -409,21 +409,21 @@ func TestMe(t *testing.T) {
 	user := models.User{ID: testUserID, Email: testEmail}
 
 	service := newService(t, &fakeUsers{byID: user}, &fakeTokens{}, &fakeHasher{})
-	found, err := service.Me(context.Background(), testUserID)
+	found, err := service.CurrentUser(context.Background(), testUserID)
 	if err != nil || found.Email != testEmail {
-		t.Fatalf("Me() = %+v, %v", found, err)
+		t.Fatalf("CurrentUser() = %+v, %v", found, err)
 	}
 
 	missing := newService(t, &fakeUsers{idErr: rules.ErrNotFound}, &fakeTokens{}, &fakeHasher{})
-	if _, err := missing.Me(context.Background(), testUserID); !errors.Is(err, rules.ErrNotFound) {
-		t.Fatalf("Me() error = %v, want ErrNotFound", err)
+	if _, err := missing.CurrentUser(context.Background(), testUserID); !errors.Is(err, rules.ErrNotFound) {
+		t.Fatalf("CurrentUser() error = %v, want ErrNotFound", err)
 	}
 }
 
 func TestNewFailsWhenDummyHashFails(t *testing.T) {
 	hasher := &fakeHasher{hashErr: errors.New("hashing unavailable")}
 
-	if _, err := auth.New(&fakeUsers{}, &fakeTokens{}, hasher, fakeIssuer{}, testRefreshLifetime); err == nil {
-		t.Fatal("auth.New() must fail when the dummy hash cannot be built")
+	if _, err := auth.NewAuthenticationService(&fakeUsers{}, &fakeTokens{}, hasher, fakeIssuer{}, testRefreshLifetime); err == nil {
+		t.Fatal("auth.NewAuthenticationService() must fail when the dummy hash cannot be built")
 	}
 }

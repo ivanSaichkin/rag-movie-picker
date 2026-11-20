@@ -18,59 +18,59 @@ const (
 )
 
 func TestIssueAndParse(t *testing.T) {
-	issuer := token.New(testSecret, accessTokenTTL)
+	issuer := token.NewAccessTokenIssuer(testSecret, accessTokenTTL)
 	userID := uuid.New()
 
-	raw, expiresIn, err := issuer.IssueAccess(userID)
+	raw, expiresIn, err := issuer.IssueAccessToken(userID)
 	if err != nil {
-		t.Fatalf("IssueAccess() error = %v", err)
+		t.Fatalf("IssueAccessToken() error = %v", err)
 	}
 	if expiresIn != 60 {
 		t.Fatalf("expiresIn = %d, want 60", expiresIn)
 	}
 
-	parsed, err := issuer.ParseAccess(raw)
+	parsed, err := issuer.ParseAccessToken(raw)
 	if err != nil {
-		t.Fatalf("ParseAccess() error = %v", err)
+		t.Fatalf("ParseAccessToken() error = %v", err)
 	}
 	if parsed != userID {
-		t.Fatalf("ParseAccess() = %v, want %v", parsed, userID)
+		t.Fatalf("ParseAccessToken() = %v, want %v", parsed, userID)
 	}
 }
 
 func TestParseRejectsExpiredToken(t *testing.T) {
-	issuer := token.New(testSecret, -accessTokenTTL)
+	issuer := token.NewAccessTokenIssuer(testSecret, -accessTokenTTL)
 
-	raw, _, err := issuer.IssueAccess(uuid.New())
+	raw, _, err := issuer.IssueAccessToken(uuid.New())
 	if err != nil {
-		t.Fatalf("IssueAccess() error = %v", err)
+		t.Fatalf("IssueAccessToken() error = %v", err)
 	}
 
-	if _, err := issuer.ParseAccess(raw); !errors.Is(err, rules.ErrTokenExpired) {
-		t.Fatalf("ParseAccess() error = %v, want ErrTokenExpired", err)
+	if _, err := issuer.ParseAccessToken(raw); !errors.Is(err, rules.ErrTokenExpired) {
+		t.Fatalf("ParseAccessToken() error = %v, want ErrTokenExpired", err)
 	}
 }
 
 func TestParseRejectsForeignSecret(t *testing.T) {
-	issuer := token.New(testSecret, accessTokenTTL)
-	other := token.New(anotherSecret, accessTokenTTL)
+	issuer := token.NewAccessTokenIssuer(testSecret, accessTokenTTL)
+	other := token.NewAccessTokenIssuer(anotherSecret, accessTokenTTL)
 
-	raw, _, err := issuer.IssueAccess(uuid.New())
+	raw, _, err := issuer.IssueAccessToken(uuid.New())
 	if err != nil {
-		t.Fatalf("IssueAccess() error = %v", err)
+		t.Fatalf("IssueAccessToken() error = %v", err)
 	}
 
-	if _, err := other.ParseAccess(raw); !errors.Is(err, rules.ErrUnauthenticated) {
-		t.Fatalf("ParseAccess() error = %v, want ErrUnauthenticated", err)
+	if _, err := other.ParseAccessToken(raw); !errors.Is(err, rules.ErrUnauthenticated) {
+		t.Fatalf("ParseAccessToken() error = %v, want ErrUnauthenticated", err)
 	}
 }
 
 func TestParseRejectsGarbage(t *testing.T) {
-	issuer := token.New(testSecret, accessTokenTTL)
+	issuer := token.NewAccessTokenIssuer(testSecret, accessTokenTTL)
 
 	for _, raw := range []string{"", "not-a-jwt", "a.b.c"} {
-		if _, err := issuer.ParseAccess(raw); !errors.Is(err, rules.ErrUnauthenticated) {
-			t.Fatalf("ParseAccess(%q) error = %v, want ErrUnauthenticated", raw, err)
+		if _, err := issuer.ParseAccessToken(raw); !errors.Is(err, rules.ErrUnauthenticated) {
+			t.Fatalf("ParseAccessToken(%q) error = %v, want ErrUnauthenticated", raw, err)
 		}
 	}
 }

@@ -18,7 +18,7 @@ type RefreshToken struct {
 	CreatedAt time.Time
 }
 
-// Revoked reports whether the token was already used or invalidated.
-func (t RefreshToken) Revoked() bool {
+// IsRevoked reports whether the token was already used or invalidated.
+func (t RefreshToken) IsRevoked() bool {
 	return t.RevokedAt != nil
 }

@@ -54,7 +54,7 @@ CSV → CLI импорта → MovieFormatter → BM25Encoder + TransformerEmbed
 | Компонент | Ответственность |
 | --- | --- |
 | Go HTTP handlers | Разбор и валидация запросов, проверка сессии, HTTP-ответы |
-| `AuthService` | Регистрация, проверка пароля, выдача access-токена и ротация refresh-токенов |
+| `AuthenticationService` | Регистрация, проверка пароля, выдача access-токена и ротация refresh-токенов |
 | `RecommendationService` | Вызов RAG, сохранение истории |
 | `UserMovieService` | «Хочу посмотреть», просмотренное и оценки |
 | Go repositories | PostgreSQL, SQL-запросы и транзакции |

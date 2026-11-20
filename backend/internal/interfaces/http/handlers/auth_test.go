@@ -70,7 +70,7 @@ func (f *fakeAuthService) Logout(_ context.Context, refreshToken string) error {
 	return f.authErr
 }
 
-func (f *fakeAuthService) Me(context.Context, uuid.UUID) (models.User, error) {
+func (f *fakeAuthService) CurrentUser(context.Context, uuid.UUID) (models.User, error) {
 	return f.user, f.meErr
 }
 
@@ -79,17 +79,17 @@ type fakeIssuer struct {
 	err    error
 }
 
-func (f fakeIssuer) IssueAccess(uuid.UUID) (string, int, error) { return "", 0, nil }
+func (f fakeIssuer) IssueAccessToken(uuid.UUID) (string, int, error) { return "", 0, nil }
 
-func (f fakeIssuer) ParseAccess(string) (uuid.UUID, error) { return f.userID, f.err }
+func (f fakeIssuer) ParseAccessToken(string) (uuid.UUID, error) { return f.userID, f.err }
 
 func testSession() models.Session {
 	return models.Session{
-		User:             models.User{ID: testUserID, Email: "user@example.com", CreatedAt: testCreatedAt},
-		AccessToken:      "access-token",
-		AccessExpiresIn:  900,
-		RefreshToken:     "refresh-token-1",
-		RefreshExpiresAt: time.Now().Add(24 * time.Hour),
+		User:                  models.User{ID: testUserID, Email: "user@example.com", CreatedAt: testCreatedAt},
+		AccessToken:           "access-token",
+		AccessTokenExpiresIn:  900,
+		RefreshToken:          "refresh-token-1",
+		RefreshTokenExpiresAt: time.Now().Add(24 * time.Hour),
 	}
 }
 
@@ -98,7 +98,7 @@ func newAuthEngine(service *fakeAuthService) *gin.Engine {
 	engine := gin.New()
 	engine.Use(middleware.Logging(slog.New(slog.NewJSONHandler(io.Discard, nil))))
 
-	auth := handlers.NewAuth(service, false)
+	auth := handlers.NewAuthHandler(service, false)
 	engine.POST("/register", auth.Register)
 	engine.POST("/login", auth.Login)
 	engine.POST("/refresh", auth.Refresh)
@@ -111,8 +111,8 @@ func newMeEngine(service *fakeAuthService, issuer fakeIssuer) *gin.Engine {
 	engine := gin.New()
 	engine.Use(middleware.Logging(slog.New(slog.NewJSONHandler(io.Discard, nil))))
 
-	auth := handlers.NewAuth(service, false)
-	engine.GET("/me", middleware.Authenticate(issuer), auth.Me)
+	auth := handlers.NewAuthHandler(service, false)
+	engine.GET("/me", middleware.Authenticate(issuer), auth.CurrentUser)
 	return engine
 }
 
@@ -126,7 +126,7 @@ func TestRegisterCreatesSessionAndCookie(t *testing.T) {
 	testutils.RequireStatus(t, recorder, http.StatusCreated)
 
 	body := testutils.DecodeJSON[dto.AuthResponse](t, recorder)
-	if body.AccessToken != "access-token" || body.ExpiresIn != 900 {
+	if body.AccessToken != "access-token" || body.AccessTokenExpiresIn != 900 {
 		t.Fatalf("auth response = %+v", body)
 	}
 	if body.User.Email != "user@example.com" {

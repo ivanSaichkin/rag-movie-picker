@@ -15,24 +15,24 @@ import (
 
 const readinessTimeout = 2 * time.Second
 
-// Health reports process liveness and dependency readiness.
-type Health struct {
+// HealthHandler reports process liveness and dependency readiness.
+type HealthHandler struct {
 	checks []ports.ReadinessCheck
 }
 
-// NewHealth builds the health handler. Checks are evaluated in the given order.
-func NewHealth(checks ...ports.ReadinessCheck) *Health {
-	return &Health{checks: checks}
+// NewHealthHandler builds the health handler. Checks are evaluated in the given order.
+func NewHealthHandler(checks ...ports.ReadinessCheck) *HealthHandler {
+	return &HealthHandler{checks: checks}
 }
 
 // Liveness reports that the process is running.
-func (h *Health) Liveness(c *gin.Context) {
+func (h *HealthHandler) Liveness(c *gin.Context) {
 	c.JSON(http.StatusOK, dto.HealthResponse{Status: "ok"})
 }
 
 // Readiness reports whether the service can serve traffic. Dependency errors
 // are logged with the request identifier but never returned to the client.
-func (h *Health) Readiness(c *gin.Context) {
+func (h *HealthHandler) Readiness(c *gin.Context) {
 	ctx, cancel := context.WithTimeout(c.Request.Context(), readinessTimeout)
 	defer cancel()
 

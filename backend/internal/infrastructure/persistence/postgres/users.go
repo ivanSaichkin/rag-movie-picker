@@ -12,18 +12,18 @@ import (
 	"github.com/ivanSaichkin/rag-movie-picker/backend/internal/domain/rules"
 )
 
-// Users stores accounts in PostgreSQL.
-type Users struct {
+// UserRepository stores accounts in PostgreSQL.
+type UserRepository struct {
 	pool *pgxpool.Pool
 }
 
-// NewUsers builds the user repository.
-func NewUsers(pool *pgxpool.Pool) *Users {
-	return &Users{pool: pool}
+// NewUserRepository builds the user repository.
+func NewUserRepository(pool *pgxpool.Pool) *UserRepository {
+	return &UserRepository{pool: pool}
 }
 
 // Create inserts a user and returns the generated identifier and creation time.
-func (r *Users) Create(ctx context.Context, user models.User) (models.User, error) {
+func (r *UserRepository) Create(ctx context.Context, user models.User) (models.User, error) {
 	const query = `
 		INSERT INTO users (email, password_hash)
 		VALUES ($1, $2)
@@ -39,8 +39,8 @@ func (r *Users) Create(ctx context.Context, user models.User) (models.User, erro
 	return user, nil
 }
 
-// ByEmail finds a user by a case-insensitive email match.
-func (r *Users) ByEmail(ctx context.Context, email string) (models.User, error) {
+// FindByEmail finds a user by a case-insensitive email match.
+func (r *UserRepository) FindByEmail(ctx context.Context, email string) (models.User, error) {
 	const query = `
 		SELECT id, email, password_hash, created_at
 		FROM users
@@ -54,8 +54,8 @@ func (r *Users) ByEmail(ctx context.Context, email string) (models.User, error) 
 	return user, nil
 }
 
-// ByID finds a user by identifier.
-func (r *Users) ByID(ctx context.Context, id uuid.UUID) (models.User, error) {
+// FindByID finds a user by identifier.
+func (r *UserRepository) FindByID(ctx context.Context, id uuid.UUID) (models.User, error) {
 	const query = `
 		SELECT id, email, password_hash, created_at
 		FROM users

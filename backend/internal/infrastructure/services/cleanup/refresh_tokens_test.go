@@ -27,7 +27,7 @@ func (f *fakeRepository) Create(context.Context, models.RefreshToken) (models.Re
 	return models.RefreshToken{}, errors.New("unexpected call")
 }
 
-func (f *fakeRepository) ByHash(context.Context, []byte) (models.RefreshToken, error) {
+func (f *fakeRepository) FindByHash(context.Context, []byte) (models.RefreshToken, error) {
 	return models.RefreshToken{}, errors.New("unexpected call")
 }
 
@@ -39,7 +39,7 @@ func (f *fakeRepository) RevokeFamily(context.Context, uuid.UUID) (int64, error)
 	return 0, errors.New("unexpected call")
 }
 
-func (f *fakeRepository) DeleteStale(_ context.Context, cutoff time.Time) (int64, error) {
+func (f *fakeRepository) DeleteExpired(_ context.Context, cutoff time.Time) (int64, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 
@@ -59,7 +59,7 @@ func TestRunCleansUpOnStartAndStopsOnCancel(t *testing.T) {
 	repository := &fakeRepository{removed: 3}
 	var buffer bytes.Buffer
 
-	task := NewRefreshTokens(repository, slog.New(slog.NewJSONHandler(&buffer, nil)))
+	task := NewRefreshTokenCleaner(repository, slog.New(slog.NewJSONHandler(&buffer, nil)))
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
 
@@ -68,7 +68,7 @@ func TestRunCleansUpOnStartAndStopsOnCancel(t *testing.T) {
 
 	calls, cutoffs := repository.snapshot()
 	if calls != 1 {
-		t.Fatalf("DeleteStale calls = %d, want 1", calls)
+		t.Fatalf("DeleteExpired calls = %d, want 1", calls)
 	}
 
 	want := time.Now().Add(-defaultRetention)
@@ -84,7 +84,7 @@ func TestRunLogsCleanupFailure(t *testing.T) {
 	repository := &fakeRepository{err: errors.New("database is down")}
 	var buffer bytes.Buffer
 
-	task := NewRefreshTokens(repository, slog.New(slog.NewJSONHandler(&buffer, nil)))
+	task := NewRefreshTokenCleaner(repository, slog.New(slog.NewJSONHandler(&buffer, nil)))
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
 	task.Run(ctx)
@@ -101,7 +101,7 @@ func TestRunDoesNotLogWhenNothingRemoved(t *testing.T) {
 	repository := &fakeRepository{}
 	var buffer bytes.Buffer
 
-	task := NewRefreshTokens(repository, slog.New(slog.NewJSONHandler(&buffer, nil)))
+	task := NewRefreshTokenCleaner(repository, slog.New(slog.NewJSONHandler(&buffer, nil)))
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
 	task.Run(ctx)

@@ -20,7 +20,7 @@ var migrationsFS embed.FS
 var migrationNamePattern = regexp.MustCompile(`^(\d+)_.*\.up\.sql$`)
 
 // LatestVersion returns the highest migration version available in the binary.
-// Readiness compares it with the version applied to the database.
+// ReadinessCheck compares it with the version applied to the database.
 func LatestVersion() (uint, error) {
 	entries, err := migrationsFS.ReadDir("migrations")
 	if err != nil {
