@@ -67,6 +67,19 @@ curl -i 127.0.0.1:8080/ready
 
 Обязательные переменные — `DATABASE_URL` и `JWT_SECRET` (не короче 32 символов). Полный список настроек и их значения по умолчанию приведены в корневом README, раздел «Интерфейс и эксплуатация». Redis необязателен: без `REDIS_ADDR` ограничения частоты считаются в памяти, при недоступном Redis сервис откатывается на память и пишет предупреждение в лог с троттлингом.
 
+## Docker
+
+```bash
+cp .env.example .env        # задайте свой JWT_SECRET
+docker compose up -d --build
+curl -i 127.0.0.1:8080/health
+docker compose down -v
+```
+
+Compose поднимает PostgreSQL с volume `pgdata`, Redis, одноразовый сервис миграций и API. Наружу публикуется только API на `127.0.0.1:${HTTP_PORT:-8080}`; порты БД и Redis не публикуются. Профиль RAG в compose не входит: адрес задаётся `RAG_GRPC_ADDR_CONTAINER` (по умолчанию `host.docker.internal:50051`), при недоступном RAG каталог и подбор отвечают 503. Фронтенд запускается отдельно и обращается к API.
+
+Цели Makefile: `docker-build`, `up`, `down`, `logs`.
+
 ## Проверки
 
 ```bash

@@ -8,7 +8,7 @@ SHELL := /bin/bash
 BINARY := bin/api
 GOLANGCI_LINT ?= golangci-lint
 
-.PHONY: check fmt vet test test-race test-integration lint build run tidy
+.PHONY: check fmt vet test test-race test-integration lint build run tidy docker-build up down logs
 
 check: fmt vet lint test-race
 
@@ -38,3 +38,15 @@ run:
 
 tidy:
 	go mod tidy
+
+docker-build:
+	docker build -f Dockerfile -t rag-movie-picker-backend:local ..
+
+up:
+	docker compose up -d --build
+
+down:
+	docker compose down
+
+logs:
+	docker compose logs -f api

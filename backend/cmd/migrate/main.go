@@ -27,20 +27,24 @@ func run(args []string) error {
 		return errors.New(usage)
 	}
 
-	cfg, err := config.Load()
+	databaseURL, err := config.LoadDatabaseURL()
+	if err != nil {
+		return fmt.Errorf("load config: %w", err)
+	}
+	level, err := config.LoadLogLevel()
 	if err != nil {
 		return fmt.Errorf("load config: %w", err)
 	}
 
-	log := logger.New(cfg.LogLevel, os.Stdout)
+	log := logger.New(level, os.Stdout)
 	slog.SetDefault(log)
 
 	switch args[0] {
 	case "up":
-		if err := postgres.Up(cfg.DatabaseURL); err != nil {
+		if err := postgres.Up(databaseURL); err != nil {
 			return err
 		}
-		version, dirty, err := postgres.Version(cfg.DatabaseURL)
+		version, dirty, err := postgres.Version(databaseURL)
 		if err != nil {
 			return err
 		}
@@ -54,17 +58,17 @@ func run(args []string) error {
 		if err != nil || steps <= 0 {
 			return fmt.Errorf("invalid steps %q, expected a positive integer", args[1])
 		}
-		if err := postgres.Down(cfg.DatabaseURL, steps); err != nil {
+		if err := postgres.Down(databaseURL, steps); err != nil {
 			return err
 		}
-		version, dirty, err := postgres.Version(cfg.DatabaseURL)
+		version, dirty, err := postgres.Version(databaseURL)
 		if err != nil {
 			return err
 		}
 		log.Info("migrations rolled back", "steps", steps, "version", version, "dirty", dirty)
 		return nil
 	case "version":
-		version, dirty, err := postgres.Version(cfg.DatabaseURL)
+		version, dirty, err := postgres.Version(databaseURL)
 		if err != nil {
 			return err
 		}

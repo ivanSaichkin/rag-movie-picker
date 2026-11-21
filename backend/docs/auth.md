@@ -94,7 +94,7 @@ Access-токен в cookie не кладётся: клиент держит е�
 
 ### 2.8. Защита от CSRF
 
-Отдельного CSRF-токена нет: access-токен не отправляется автоматически, а refresh-cookie прикрыта `SameSite=Strict` и проверкой `Origin` в [middleware.CheckOrigin](../internal/interfaces/http/server/middleware/origin.go). Для методов кроме GET/HEAD/OPTIONS при наличии заголовка `Origin` он должен совпадать с `ALLOWED_ORIGIN`, иначе 403 `FORBIDDEN`. Запросы без `Origin` (curl, мобильные клиенты) пропускаются.
+Отдельного CSRF-токена нет: access-токен не отправляется автоматически, а refresh-cookie прикрыта `SameSite=Strict` и проверкой `Origin` в [middleware.CheckOrigin](../internal/interfaces/http/server/middleware/origin.go). Для методов кроме GET/HEAD/OPTIONS при наличии заголовка `Origin` он должен совпадать с `ALLOWED_ORIGIN`, иначе 403 `FORBIDDEN`. Запросы без `Origin` (curl, мобильные клиенты) пропускаются. Схема рассчитана на один публичный origin: если сайт обращается к API напрямую с другого origin, понадобятся CORS с credentials и `SameSite=None; Secure` для refresh-cookie.
 
 ### 2.9. Ограничение частоты
 

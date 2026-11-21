@@ -85,3 +85,15 @@ jobs:
           cache-dependency-path: backend/go.sum
       - name: Test with PostgreSQL in Docker
         run: go test -race -tags=integration -count=1 ./...
+
+  docker:
+    name: Docker image
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - name: Build backend image
+        working-directory: .
+        run: docker build -f backend/Dockerfile -t rag-movie-picker-backend:ci .

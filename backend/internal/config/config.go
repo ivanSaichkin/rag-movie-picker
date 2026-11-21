@@ -143,20 +143,18 @@ func loadHTTP(cfg *Config) error {
 		return fmt.Errorf("HTTP_ADDR: %w", err)
 	}
 
-	if raw, ok := os.LookupEnv("LOG_LEVEL"); ok {
-		level, err := parseLogLevel(raw)
-		if err != nil {
-			return err
-		}
-		cfg.LogLevel = level
+	level, err := LoadLogLevel()
+	if err != nil {
+		return err
 	}
+	cfg.LogLevel = level
 	return nil
 }
 
 func loadDatabase(cfg *Config) error {
-	databaseURL := strings.TrimSpace(os.Getenv("DATABASE_URL"))
-	if databaseURL == "" {
-		return fmt.Errorf("DATABASE_URL: required")
+	databaseURL, err := LoadDatabaseURL()
+	if err != nil {
+		return err
 	}
 	cfg.DatabaseURL = databaseURL
 
@@ -169,6 +167,26 @@ func loadDatabase(cfg *Config) error {
 		cfg.PostgresMaxConnections = int32(maxConns)
 	}
 	return nil
+}
+
+// LoadDatabaseURL reads the database URL. The migration command uses it
+// directly: applying migrations must not require API settings such as the JWT
+// secret.
+func LoadDatabaseURL() (string, error) {
+	databaseURL := strings.TrimSpace(os.Getenv("DATABASE_URL"))
+	if databaseURL == "" {
+		return "", fmt.Errorf("DATABASE_URL: required")
+	}
+	return databaseURL, nil
+}
+
+// LoadLogLevel reads LOG_LEVEL with the info default.
+func LoadLogLevel() (slog.Level, error) {
+	raw, ok := os.LookupEnv("LOG_LEVEL")
+	if !ok {
+		return defaultLogLevel, nil
+	}
+	return parseLogLevel(raw)
 }
 
 func loadAuth(cfg *Config) error {

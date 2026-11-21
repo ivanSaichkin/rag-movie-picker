@@ -335,6 +335,38 @@ func TestLoadInvalidRAG(t *testing.T) {
 	}
 }
 
+func TestLoadDatabaseURL(t *testing.T) {
+	unsetenv(t, "DATABASE_URL")
+	if _, err := config.LoadDatabaseURL(); err == nil || !strings.Contains(err.Error(), "DATABASE_URL") {
+		t.Fatalf("LoadDatabaseURL() error = %v, want a DATABASE_URL error", err)
+	}
+
+	t.Setenv("DATABASE_URL", testDatabaseURL)
+	got, err := config.LoadDatabaseURL()
+	if err != nil || got != testDatabaseURL {
+		t.Fatalf("LoadDatabaseURL() = %q, %v", got, err)
+	}
+}
+
+func TestLoadLogLevel(t *testing.T) {
+	unsetenv(t, "LOG_LEVEL")
+	level, err := config.LoadLogLevel()
+	if err != nil || level != slog.LevelInfo {
+		t.Fatalf("LoadLogLevel() = %v, %v", level, err)
+	}
+
+	t.Setenv("LOG_LEVEL", "warn")
+	level, err = config.LoadLogLevel()
+	if err != nil || level != slog.LevelWarn {
+		t.Fatalf("LoadLogLevel() = %v, %v", level, err)
+	}
+
+	t.Setenv("LOG_LEVEL", "verbose")
+	if _, err := config.LoadLogLevel(); err == nil {
+		t.Fatal("LoadLogLevel() with an unknown level must fail")
+	}
+}
+
 func TestLoadLogLevels(t *testing.T) {
 	for raw, want := range map[string]slog.Level{
 		"debug":   slog.LevelDebug,

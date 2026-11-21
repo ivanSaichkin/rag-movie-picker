@@ -1,0 +1,10 @@
+.git
+.github
+docs
+frontend
+rag
+contributions
+**/*.md
+backend/bin
+backend/coverage.out
+backend/.env
