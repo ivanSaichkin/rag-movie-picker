@@ -187,7 +187,7 @@ Access-токен в cookie не кладётся: клиент держит е�
 | SQL | [persistence/postgres/users.go](../internal/infrastructure/persistence/postgres/users.go), [refresh_tokens.go](../internal/infrastructure/persistence/postgres/refresh_tokens.go) |
 | HTTP | [handlers/auth.go](../internal/interfaces/http/handlers/auth.go), [handlers/cookie.go](../internal/interfaces/http/handlers/cookie.go), [handlers/request.go](../internal/interfaces/http/handlers/request.go) |
 | middleware | [auth.go](../internal/interfaces/http/server/middleware/auth.go), [origin.go](../internal/interfaces/http/server/middleware/origin.go), [ratelimit.go](../internal/interfaces/http/server/middleware/ratelimit.go) |
-| сборка | [app.go](../internal/app/app.go), [router.go](../internal/infrastructure/adapters/router/router.go), [config.go](../internal/config/config.go) |
+| сборка | [app/](../internal/app) (фабрики ресурсов, сервисов и HTTP), [router.go](../internal/infrastructure/adapters/router/router.go), [config.go](../internal/config/config.go) |
 | фоновая задача | [cleanup/refresh_tokens.go](../internal/infrastructure/services/cleanup/refresh_tokens.go) — каждые 15 минут удаляет токены, просроченные или отозванные более 7 дней назад |
 
 ## 5. Ошибки API

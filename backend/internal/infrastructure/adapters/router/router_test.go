@@ -47,20 +47,54 @@ type stubIssuer struct{}
 
 func (stubIssuer) IssueAccessToken(uuid.UUID) (string, int, error) { return "token", 60, nil }
 
-func (stubIssuer) ParseAccessToken(string) (uuid.UUID, error) {
+func (stubIssuer) ParseAccessToken(raw string) (uuid.UUID, error) {
+	if raw == "valid-token" {
+		return testUserID, nil
+	}
 	return uuid.Nil, rules.ErrUnauthenticated
 }
 
+type stubCatalogService struct {
+	catalog    models.Catalog
+	catalogErr error
+	movie      models.MovieCard
+	movieErr   error
+}
+
+func (s stubCatalogService) Catalog(context.Context) (models.Catalog, error) {
+	return s.catalog, s.catalogErr
+}
+
+func (s stubCatalogService) Movie(context.Context, int64) (models.MovieCard, error) {
+	return s.movie, s.movieErr
+}
+
+var testUserID = uuid.New()
+
 func newTestRouter() http.Handler {
+	return newTestRouterWithCatalog(stubCatalogService{
+		catalog: models.Catalog{MovieCount: 4803, DefaultResults: 10, MaxResults: 50, DefaultStrategy: "hybrid"},
+		movie:   models.MovieCard{MovieID: 1, Title: "Alien"},
+	})
+}
+
+func newTestRouterWithCatalog(catalogService stubCatalogService) http.Handler {
 	logger := slog.New(slog.NewJSONHandler(io.Discard, nil))
 
 	return router.New(router.Params{
 		Logger:        logger,
 		Health:        handlers.NewHealthHandler(),
 		Auth:          handlers.NewAuthHandler(stubAuthService{}, false),
+		Catalog:       handlers.NewCatalogHandler(catalogService),
 		Authenticate:  middleware.Authenticate(stubIssuer{}),
 		AllowedOrigin: testOrigin,
 	})
+}
+
+func authorizedHeader() http.Header {
+	header := http.Header{}
+	header.Set("Authorization", "Bearer valid-token")
+	return header
 }
 
 func TestHealthRoute(t *testing.T) {
@@ -162,5 +196,56 @@ func TestForeignOriginIsRejected(t *testing.T) {
 	envelope := testutils.DecodeJSON[dto.ErrorResponse](t, recorder)
 	if envelope.Error.Code != dto.CodeForbidden {
 		t.Fatalf("code = %q, want %q", envelope.Error.Code, dto.CodeForbidden)
+	}
+}
+
+func TestCatalogRequiresAuthorization(t *testing.T) {
+	handler := newTestRouter()
+
+	recorder := testutils.Perform(t, handler, http.MethodGet, "/api/v1/catalog", nil, nil)
+	testutils.RequireStatus(t, recorder, http.StatusUnauthorized)
+}
+
+func TestCatalogReturnsData(t *testing.T) {
+	handler := newTestRouter()
+
+	recorder := testutils.Perform(t, handler, http.MethodGet, "/api/v1/catalog", nil, authorizedHeader())
+	testutils.RequireStatus(t, recorder, http.StatusOK)
+
+	body := testutils.DecodeJSON[dto.CatalogResponse](t, recorder)
+	if body.MovieCount != 4803 || body.DefaultStrategy != "hybrid" {
+		t.Fatalf("catalog = %+v", body)
+	}
+}
+
+func TestMovieReturnsData(t *testing.T) {
+	handler := newTestRouter()
+
+	recorder := testutils.Perform(t, handler, http.MethodGet, "/api/v1/movies/1", nil, authorizedHeader())
+	testutils.RequireStatus(t, recorder, http.StatusOK)
+
+	body := testutils.DecodeJSON[dto.MovieResponse](t, recorder)
+	if body.MovieID != 1 || body.Title != "Alien" {
+		t.Fatalf("movie = %+v", body)
+	}
+}
+
+func TestMovieRejectsInvalidID(t *testing.T) {
+	handler := newTestRouter()
+
+	recorder := testutils.Perform(t, handler, http.MethodGet, "/api/v1/movies/abc", nil, authorizedHeader())
+	testutils.RequireStatus(t, recorder, http.StatusUnprocessableEntity)
+}
+
+func TestMovieMapsNotFound(t *testing.T) {
+	catalogService := stubCatalogService{movieErr: rules.ErrNotFound}
+	handler := newTestRouterWithCatalog(catalogService)
+
+	recorder := testutils.Perform(t, handler, http.MethodGet, "/api/v1/movies/42", nil, authorizedHeader())
+	testutils.RequireStatus(t, recorder, http.StatusNotFound)
+
+	body := testutils.DecodeJSON[dto.ErrorResponse](t, recorder)
+	if body.Error.Code != dto.CodeNotFound {
+		t.Fatalf("code = %q", body.Error.Code)
 	}
 }

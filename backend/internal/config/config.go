@@ -28,6 +28,8 @@ const (
 	defaultRateLimitAuthPerMinute    = 10
 	defaultRateLimitRegisterPerHour  = 20
 	defaultRateLimitRefreshPerMinute = 60
+	defaultRAGGRPCAddress            = "127.0.0.1:50051"
+	defaultRAGTimeout                = 30 * time.Second
 	minJWTSecretLength               = 32
 	redisDefaultDB                   = 0
 	defaultRedisTimeout              = time.Second
@@ -38,6 +40,7 @@ const (
 	maxArgon2MemoryMiB        = 1024
 	maxArgon2Parallelism      = 16
 	maxRateLimitPerWindow     = 100000
+	maxRAGTimeoutSeconds      = 120
 )
 
 // Argon2Config holds the password hashing cost parameters.
@@ -77,6 +80,8 @@ type Config struct {
 	Argon2                 Argon2Config
 	RateLimit              RateLimitConfig
 	Redis                  RedisConfig
+	RAGGRPCAddress         string
+	RAGTimeout             time.Duration
 }
 
 // Load reads the configuration from the environment. It contains only the
@@ -100,7 +105,9 @@ func Load() (Config, error) {
 			RegisterPerHour:  defaultRateLimitRegisterPerHour,
 			RefreshPerMinute: defaultRateLimitRefreshPerMinute,
 		},
-		Redis: RedisConfig{Database: redisDefaultDB, Timeout: defaultRedisTimeout},
+		Redis:          RedisConfig{Database: redisDefaultDB, Timeout: defaultRedisTimeout},
+		RAGGRPCAddress: defaultRAGGRPCAddress,
+		RAGTimeout:     defaultRAGTimeout,
 	}
 
 	if err := loadHTTP(&cfg); err != nil {
@@ -119,6 +126,9 @@ func Load() (Config, error) {
 		return Config{}, err
 	}
 	if err := loadRedis(&cfg); err != nil {
+		return Config{}, err
+	}
+	if err := loadRAG(&cfg); err != nil {
 		return Config{}, err
 	}
 
@@ -177,13 +187,13 @@ func loadAuth(cfg *Config) error {
 	}
 	cfg.JWTSecret = secret
 
-	accessTTL, err := secondsFromEnv("ACCESS_TOKEN_TTL", cfg.AccessTokenTTL, 1, maxAccessTokenTTLSeconds)
+	accessTTL, err := secondsFromEnv("ACCESS_TOKEN_TTL", cfg.AccessTokenTTL, maxAccessTokenTTLSeconds)
 	if err != nil {
 		return err
 	}
 	cfg.AccessTokenTTL = accessTTL
 
-	refreshTTL, err := secondsFromEnv("REFRESH_TOKEN_TTL", cfg.RefreshTokenTTL, 1, maxRefreshTokenTTLSeconds)
+	refreshTTL, err := secondsFromEnv("REFRESH_TOKEN_TTL", cfg.RefreshTokenTTL, maxRefreshTokenTTLSeconds)
 	if err != nil {
 		return err
 	}
@@ -261,11 +271,27 @@ func loadRedis(cfg *Config) error {
 		}
 		cfg.Redis.Database = value
 	}
-	timeout, err := secondsFromEnv("REDIS_TIMEOUT_SECONDS", cfg.Redis.Timeout, 1, 60)
+	timeout, err := secondsFromEnv("REDIS_TIMEOUT_SECONDS", cfg.Redis.Timeout, 60)
 	if err != nil {
 		return err
 	}
 	cfg.Redis.Timeout = timeout
+	return nil
+}
+
+func loadRAG(cfg *Config) error {
+	if raw, ok := os.LookupEnv("RAG_GRPC_ADDR"); ok {
+		cfg.RAGGRPCAddress = strings.TrimSpace(raw)
+	}
+	if err := validateAddr(cfg.RAGGRPCAddress); err != nil {
+		return fmt.Errorf("RAG_GRPC_ADDR: %w", err)
+	}
+
+	timeout, err := secondsFromEnv("RAG_TIMEOUT_SECONDS", cfg.RAGTimeout, maxRAGTimeoutSeconds)
+	if err != nil {
+		return err
+	}
+	cfg.RAGTimeout = timeout
 	return nil
 }
 
@@ -328,12 +354,12 @@ func parseInt(key, raw string, minValue, maxValue int) (int, error) {
 	return value, nil
 }
 
-func secondsFromEnv(key string, fallback time.Duration, minValue, maxValue int) (time.Duration, error) {
+func secondsFromEnv(key string, fallback time.Duration, maxValue int) (time.Duration, error) {
 	raw, ok := os.LookupEnv(key)
 	if !ok {
 		return fallback, nil
 	}
-	seconds, err := parseInt(key, raw, minValue, maxValue)
+	seconds, err := parseInt(key, raw, 1, maxValue)
 	if err != nil {
 		return 0, err
 	}

@@ -6,6 +6,8 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
+
+	"github.com/ivanSaichkin/rag-movie-picker/backend/internal/platform/requestid"
 )
 
 // HeaderRequestID carries the correlation identifier of a request.
@@ -26,6 +28,7 @@ func RequestID() gin.HandlerFunc {
 		}
 		c.Set(requestIDKey, id)
 		c.Writer.Header().Set(HeaderRequestID, id)
+		c.Request = c.Request.WithContext(requestid.WithID(c.Request.Context(), id))
 		c.Next()
 	}
 }

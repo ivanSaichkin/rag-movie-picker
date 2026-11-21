@@ -26,6 +26,7 @@ type Params struct {
 	Logger        *slog.Logger
 	Health        *handlers.HealthHandler
 	Auth          *handlers.AuthHandler
+	Catalog       *handlers.CatalogHandler
 	Authenticate  gin.HandlerFunc
 	AllowedOrigin string
 	Limiters      Limiters
@@ -70,6 +71,11 @@ func New(params Params) *gin.Engine {
 	auth.POST("/refresh", with(params.Limiters.Refresh, params.Auth.Refresh)...)
 	auth.POST("/logout", params.Auth.Logout)
 	auth.GET("/me", with(params.Authenticate, params.Auth.CurrentUser)...)
+
+	if params.Catalog != nil {
+		v1.GET("/catalog", with(params.Authenticate, params.Catalog.Catalog)...)
+		v1.GET("/movies/:movie_id", with(params.Authenticate, params.Catalog.Movie)...)
+	}
 
 	return engine
 }

@@ -8,9 +8,10 @@ HTTP-сервис RAG Movie Picker: аккаунты, авторизация п�
 
 - конфигурация из окружения, JSON-логи, `request_id`, единый конверт ошибок, `/health` и `/ready`;
 - graceful shutdown, миграции `users`, `refresh_tokens`, `search_history`, `user_movies` и репозитории аккаунтов и refresh-токенов;
-- Argon2id, access/refresh JWT, ротация refresh-токенов с отзывом семьи, проверка `Origin`, ограничение частоты через Redis или память.
+- Argon2id, access/refresh JWT, ротация refresh-токенов с отзывом семьи, проверка `Origin`, ограничение частоты через Redis или память;
+- gRPC-клиент RAG с дедлайном и `request_id` в metadata, кеш каталога на 5 минут, `GET /api/v1/catalog` и `GET /api/v1/movies/{movie_id}`.
 
-Вызовы Python RAG ещё не подключены: `/catalog`, `/movies/{id}`, `/recommendations`, `/history` и `/my/movies` появятся в следующих частях.
+Каталог и карточки читаются из Python RAG: при недоступном сервисе эти ручки отвечают 503, а вход, `/history` и личные списки продолжат работать. Подбор рекомендаций, история и личные списки ещё не подключены.
 
 Как устроена авторизация, что и где хранится — в [docs/auth.md](docs/auth.md).
 
@@ -24,17 +25,19 @@ backend/
 ├── internal/
 │   ├── app/                    # точка сборки зависимостей и жизненный цикл
 │   ├── config/                 # env → Config, валидация
+│   ├── platform/               # сквозные помощники (request id)
 │   ├── domain/
 │   │   ├── models/             # User, RefreshToken, Session
 │   │   ├── rules/              # доменные ошибки и валидация
 │   │   └── ports/              # контракты репозиториев, сервисов, кеша
 │   ├── infrastructure/
 │   │   ├── adapters/           # logger, router, password, token, cache
+│   │   ├── clients/            # gRPC-клиент RAG
 │   │   ├── persistence/postgres/  # пул, миграции, репозитории, readiness
-│   │   └── services/           # auth, cleanup
+│   │   └── services/           # auth, catalog, cleanup
 │   └── interfaces/http/
 │       ├── dto/                # JSON-контракты
-│       ├── handlers/           # health, auth
+│       ├── handlers/           # health, auth, catalog
 │       └── server/             # http.Server и middleware
 ├── pkg/testutils/              # httptest-хелперы для тестов
 ├── docs/                       # детальная документация сервиса

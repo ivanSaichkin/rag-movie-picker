@@ -16,4 +16,10 @@ var (
 	ErrUnauthenticated = errors.New("unauthenticated")
 	// ErrTokenExpired reports an expired access token.
 	ErrTokenExpired = errors.New("token expired")
+	// ErrInvalidArgument reports invalid input rejected by a dependency.
+	ErrInvalidArgument = errors.New("invalid argument")
+	// ErrUnavailable reports an unreachable dependency.
+	ErrUnavailable = errors.New("dependency unavailable")
+	// ErrDeadlineExceeded reports an exhausted timeout.
+	ErrDeadlineExceeded = errors.New("deadline exceeded")
 )

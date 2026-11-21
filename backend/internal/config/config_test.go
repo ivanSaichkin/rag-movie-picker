@@ -24,6 +24,8 @@ func TestLoadDefaults(t *testing.T) {
 	unsetenv(t, "REFRESH_TOKEN_TTL")
 	unsetenv(t, "COOKIE_SECURE")
 	unsetenv(t, "REDIS_ADDR")
+	unsetenv(t, "RAG_GRPC_ADDR")
+	unsetenv(t, "RAG_TIMEOUT_SECONDS")
 	setRequired(t)
 
 	cfg, err := config.Load()
@@ -117,6 +119,8 @@ func TestLoadOverrides(t *testing.T) {
 	t.Setenv("REDIS_PASSWORD", "secret")
 	t.Setenv("REDIS_DB", "2")
 	t.Setenv("REDIS_TIMEOUT_SECONDS", "5")
+	t.Setenv("RAG_GRPC_ADDR", "rag.internal:50051")
+	t.Setenv("RAG_TIMEOUT_SECONDS", "45")
 	setRequired(t)
 
 	cfg, err := config.Load()
@@ -143,6 +147,9 @@ func TestLoadOverrides(t *testing.T) {
 	}
 	if cfg.Redis != (config.RedisConfig{Address: "127.0.0.1:6379", Password: "secret", Database: 2, Timeout: 5 * time.Second}) {
 		t.Fatalf("Redis = %+v", cfg.Redis)
+	}
+	if cfg.RAGGRPCAddress != "rag.internal:50051" || cfg.RAGTimeout != 45*time.Second {
+		t.Fatalf("RAG settings = %q, %v", cfg.RAGGRPCAddress, cfg.RAGTimeout)
 	}
 }
 
@@ -299,6 +306,32 @@ func TestLoadInvalidRedisDB(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "REDIS_DB") {
 		t.Fatalf("error %q must mention REDIS_DB", err)
+	}
+}
+
+func TestLoadInvalidRAG(t *testing.T) {
+	cases := []struct {
+		key string
+		raw string
+	}{
+		{"RAG_GRPC_ADDR", "rag"},
+		{"RAG_GRPC_ADDR", "rag:abc"},
+		{"RAG_TIMEOUT_SECONDS", "0"},
+		{"RAG_TIMEOUT_SECONDS", "999"},
+	}
+	for _, testCase := range cases {
+		t.Run(testCase.key+"="+testCase.raw, func(t *testing.T) {
+			t.Setenv(testCase.key, testCase.raw)
+			setRequired(t)
+
+			_, err := config.Load()
+			if err == nil {
+				t.Fatalf("Load() with %s=%q must fail", testCase.key, testCase.raw)
+			}
+			if !strings.Contains(err.Error(), testCase.key) {
+				t.Fatalf("error %q must mention %s", err, testCase.key)
+			}
+		})
 	}
 }
 
