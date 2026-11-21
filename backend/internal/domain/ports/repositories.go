@@ -25,3 +25,12 @@ type RefreshTokenRepository interface {
 	RevokeFamily(ctx context.Context, familyID uuid.UUID) (int64, error)
 	DeleteExpired(ctx context.Context, cutoff time.Time) (int64, error)
 }
+
+// HistoryRepository stores recommendation snapshots. Every method is scoped to
+// the owner: another user's record is reported as missing.
+type HistoryRepository interface {
+	Create(ctx context.Context, entry models.HistoryEntry) (models.HistoryEntry, error)
+	List(ctx context.Context, userID uuid.UUID, limit, offset int) ([]models.HistoryListItem, int64, error)
+	Get(ctx context.Context, userID, historyID uuid.UUID) (models.HistoryEntry, error)
+	Delete(ctx context.Context, userID, historyID uuid.UUID) (bool, error)
+}

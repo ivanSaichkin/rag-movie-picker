@@ -69,6 +69,28 @@ func (s stubCatalogService) Movie(context.Context, int64) (models.MovieCard, err
 	return s.movie, s.movieErr
 }
 
+type stubRecommendationService struct{}
+
+func (stubRecommendationService) Recommend(context.Context, uuid.UUID, models.RecommendationRequest) (models.RecommendationResult, error) {
+	return models.RecommendationResult{Response: models.Recommendation{
+		Mode:     "empty",
+		Items:    []models.RecommendedMovie{},
+		Warnings: []models.Warning{},
+	}}, nil
+}
+
+type stubHistoryService struct{}
+
+func (stubHistoryService) List(_ context.Context, _ uuid.UUID, page, pageSize int) (models.HistoryPage, error) {
+	return models.HistoryPage{Page: page, PageSize: pageSize, Items: []models.HistoryListItem{}}, nil
+}
+
+func (stubHistoryService) Get(context.Context, uuid.UUID, uuid.UUID) (models.HistoryEntry, error) {
+	return models.HistoryEntry{}, rules.ErrNotFound
+}
+
+func (stubHistoryService) Delete(context.Context, uuid.UUID, uuid.UUID) error { return nil }
+
 var testUserID = uuid.New()
 
 func newTestRouter() http.Handler {
@@ -82,12 +104,14 @@ func newTestRouterWithCatalog(catalogService stubCatalogService) http.Handler {
 	logger := slog.New(slog.NewJSONHandler(io.Discard, nil))
 
 	return router.New(router.Params{
-		Logger:        logger,
-		Health:        handlers.NewHealthHandler(),
-		Auth:          handlers.NewAuthHandler(stubAuthService{}, false),
-		Catalog:       handlers.NewCatalogHandler(catalogService),
-		Authenticate:  middleware.Authenticate(stubIssuer{}),
-		AllowedOrigin: testOrigin,
+		Logger:         logger,
+		Health:         handlers.NewHealthHandler(),
+		Auth:           handlers.NewAuthHandler(stubAuthService{}, false),
+		Catalog:        handlers.NewCatalogHandler(catalogService),
+		Recommendation: handlers.NewRecommendationHandler(stubRecommendationService{}),
+		History:        handlers.NewHistoryHandler(stubHistoryService{}),
+		Authenticate:   middleware.Authenticate(stubIssuer{}),
+		AllowedOrigin:  testOrigin,
 	})
 }
 
@@ -248,4 +272,58 @@ func TestMovieMapsNotFound(t *testing.T) {
 	if body.Error.Code != dto.CodeNotFound {
 		t.Fatalf("code = %q", body.Error.Code)
 	}
+}
+
+func TestRecommendationRouteRequiresAuthorization(t *testing.T) {
+	handler := newTestRouter()
+
+	recorder := testutils.Perform(t, handler, http.MethodPost, "/api/v1/recommendations", strings.NewReader(`{"query":"космос"}`), nil)
+	testutils.RequireStatus(t, recorder, http.StatusUnauthorized)
+}
+
+func TestRecommendationRouteReturnsResult(t *testing.T) {
+	handler := newTestRouter()
+
+	header := authorizedHeader()
+	header.Set("Content-Type", "application/json")
+	recorder := testutils.Perform(t, handler, http.MethodPost, "/api/v1/recommendations", strings.NewReader(`{"query":"космос"}`), header)
+	testutils.RequireStatus(t, recorder, http.StatusOK)
+
+	body := testutils.DecodeJSON[dto.RecommendationResponse](t, recorder)
+	if body.Mode != "empty" || body.HistoryID != nil {
+		t.Fatalf("response = %+v", body.StoredRecommendation)
+	}
+}
+
+func TestHistoryRouteRequiresAuthorization(t *testing.T) {
+	handler := newTestRouter()
+
+	recorder := testutils.Perform(t, handler, http.MethodGet, "/api/v1/history", nil, nil)
+	testutils.RequireStatus(t, recorder, http.StatusUnauthorized)
+}
+
+func TestHistoryRouteReturnsPage(t *testing.T) {
+	handler := newTestRouter()
+
+	recorder := testutils.Perform(t, handler, http.MethodGet, "/api/v1/history?page=2&page_size=10", nil, authorizedHeader())
+	testutils.RequireStatus(t, recorder, http.StatusOK)
+
+	body := testutils.DecodeJSON[dto.HistoryListResponse](t, recorder)
+	if body.Page != 2 || body.PageSize != 10 || body.Total != 0 {
+		t.Fatalf("page = %+v", body)
+	}
+}
+
+func TestHistoryDeleteRoute(t *testing.T) {
+	handler := newTestRouter()
+
+	recorder := testutils.Perform(t, handler, http.MethodDelete, "/api/v1/history/"+uuid.NewString(), nil, authorizedHeader())
+	testutils.RequireStatus(t, recorder, http.StatusNoContent)
+}
+
+func TestHistoryGetRouteMapsNotFound(t *testing.T) {
+	handler := newTestRouter()
+
+	recorder := testutils.Perform(t, handler, http.MethodGet, "/api/v1/history/"+uuid.NewString(), nil, authorizedHeader())
+	testutils.RequireStatus(t, recorder, http.StatusNotFound)
 }

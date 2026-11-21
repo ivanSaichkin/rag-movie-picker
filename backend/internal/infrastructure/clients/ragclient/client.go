@@ -58,6 +58,30 @@ func (c *RAGClient) Movie(ctx context.Context, movieID int64) (models.MovieCard,
 	return movieFromProto(movie), nil
 }
 
+// Recommend runs the search and returns the RAG answer.
+func (c *RAGClient) Recommend(ctx context.Context, request models.RecommendationRequest) (models.Recommendation, error) {
+	ctx, cancel := context.WithTimeout(ctx, c.timeout)
+	defer cancel()
+
+	protoRequest := &ragv1.RecommendRequest{
+		Query:                request.Query,
+		Filters:              filtersToProto(request.Filters),
+		Strategy:             request.Strategy,
+		GenerateExplanations: request.GenerateExplanations,
+	}
+	if request.Limit != nil {
+		//nolint:gosec // G115: the limit is validated against the catalog maximum before the call.
+		limit := uint32(*request.Limit)
+		protoRequest.Limit = &limit
+	}
+
+	response, err := c.client.Recommend(c.withRequestID(ctx), protoRequest)
+	if err != nil {
+		return models.Recommendation{}, mapError(err)
+	}
+	return recommendationFromProto(response), nil
+}
+
 // withRequestID propagates the incoming request identifier to the RAG service,
 // so its logs can be correlated with the Go logs.
 func (c *RAGClient) withRequestID(ctx context.Context) context.Context {
@@ -125,6 +149,55 @@ func genresFromProto(genres []*ragv1.Genre) []models.Genre {
 		result = append(result, models.Genre{ID: genre.GetId(), Name: genre.GetName()})
 	}
 	return result
+}
+
+func filtersToProto(filters models.Filters) *ragv1.Filters {
+	return &ragv1.Filters{
+		GenreIds:  append([]int64(nil), filters.GenreIDs...),
+		YearFrom:  filters.YearFrom,
+		YearTo:    filters.YearTo,
+		MinRating: filters.MinRating,
+	}
+}
+
+func recommendationFromProto(response *ragv1.RecommendResponse) models.Recommendation {
+	if response == nil {
+		return models.Recommendation{}
+	}
+
+	items := make([]models.RecommendedMovie, 0, len(response.GetItems()))
+	for _, item := range response.GetItems() {
+		if item == nil {
+			continue
+		}
+		items = append(items, models.RecommendedMovie{
+			Movie:  movieFromProto(item.GetMovie()),
+			Reason: optionalString(item.Reason),
+		})
+	}
+
+	warnings := make([]models.Warning, 0, len(response.GetWarnings()))
+	for _, warning := range response.GetWarnings() {
+		if warning == nil {
+			continue
+		}
+		warnings = append(warnings, models.Warning{Code: warning.GetCode(), Message: warning.GetMessage()})
+	}
+
+	return models.Recommendation{
+		Mode:         response.GetMode(),
+		StrategyUsed: response.GetStrategyUsed(),
+		Items:        items,
+		Warnings:     warnings,
+	}
+}
+
+func optionalString(value *string) *string {
+	if value == nil {
+		return nil
+	}
+	copied := *value
+	return &copied
 }
 
 func optionalInt32(value *int32) *int32 {

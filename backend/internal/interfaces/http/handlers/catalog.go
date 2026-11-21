@@ -1,16 +1,13 @@
 package handlers
 
 import (
-	"errors"
 	"net/http"
 	"strconv"
 
 	"github.com/gin-gonic/gin"
 
 	"github.com/ivanSaichkin/rag-movie-picker/backend/internal/domain/ports"
-	"github.com/ivanSaichkin/rag-movie-picker/backend/internal/domain/rules"
 	"github.com/ivanSaichkin/rag-movie-picker/backend/internal/interfaces/http/dto"
-	"github.com/ivanSaichkin/rag-movie-picker/backend/internal/interfaces/http/server/middleware"
 )
 
 // CatalogHandler serves the catalog and movie cards.
@@ -49,20 +46,7 @@ func (h *CatalogHandler) Movie(c *gin.Context) {
 	c.JSON(http.StatusOK, dto.NewMovieResponse(movie))
 }
 
-// respondError maps RAG failures to the API envelope: the dependency differs
-// from "no such movie" and from "service is down".
+// respondError maps RAG failures to the API envelope.
 func (h *CatalogHandler) respondError(c *gin.Context, err error, action string) {
-	switch {
-	case errors.Is(err, rules.ErrNotFound):
-		dto.Abort(c, dto.CodeNotFound, "Фильм не найден.")
-	case errors.Is(err, rules.ErrInvalidArgument):
-		dto.Abort(c, dto.CodeValidationError, "Сервис поиска отклонил запрос.")
-	case errors.Is(err, rules.ErrDeadlineExceeded):
-		dto.Abort(c, dto.CodeDeadlineExceeded, "Сервис поиска не ответил вовремя.")
-	case errors.Is(err, rules.ErrUnavailable):
-		dto.Abort(c, dto.CodeDependencyUnavailable, "Сервис поиска недоступен.")
-	default:
-		middleware.LoggerFrom(c).Error("catalog request failed", "action", action, "error", err)
-		dto.Abort(c, dto.CodeInternal, "Внутренняя ошибка сервера")
-	}
+	respondServiceError(c, err, action, "Фильм не найден.")
 }

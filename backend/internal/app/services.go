@@ -15,6 +15,8 @@ import (
 	"github.com/ivanSaichkin/rag-movie-picker/backend/internal/infrastructure/services/auth"
 	"github.com/ivanSaichkin/rag-movie-picker/backend/internal/infrastructure/services/catalog"
 	"github.com/ivanSaichkin/rag-movie-picker/backend/internal/infrastructure/services/cleanup"
+	"github.com/ivanSaichkin/rag-movie-picker/backend/internal/infrastructure/services/history"
+	"github.com/ivanSaichkin/rag-movie-picker/backend/internal/infrastructure/services/recommendation"
 )
 
 // services is the application core: the readiness check, the business services
@@ -23,6 +25,8 @@ type services struct {
 	readinessCheck        ports.ReadinessCheck
 	authenticationService ports.AuthenticationService
 	catalogService        ports.CatalogService
+	recommendationService ports.RecommendationService
+	historyService        ports.HistoryService
 	tokenIssuer           ports.AccessTokenIssuer
 	cleaner               *cleanup.RefreshTokenCleaner
 }
@@ -52,11 +56,15 @@ func newServices(infra *infrastructure, cfg config.Config, logger *slog.Logger) 
 	}
 
 	ragClient := ragclient.NewRAGClient(ragv1.NewRagServiceClient(infra.ragConnection), cfg.RAGTimeout)
+	catalogService := catalog.NewService(ragClient, infra.cache, logger)
+	historyRepository := postgres.NewHistoryRepository(infra.pool)
 
 	return &services{
 		readinessCheck:        readinessCheck,
 		authenticationService: authenticationService,
-		catalogService:        catalog.NewService(ragClient, infra.cache, logger),
+		catalogService:        catalogService,
+		recommendationService: recommendation.NewService(catalogService, ragClient, historyRepository, logger),
+		historyService:        history.NewService(historyRepository),
 		tokenIssuer:           tokenIssuer,
 		cleaner:               cleanup.NewRefreshTokenCleaner(refreshTokens, logger),
 	}, nil

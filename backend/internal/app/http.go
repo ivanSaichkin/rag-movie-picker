@@ -15,15 +15,19 @@ import (
 func newHTTPServer(cfg config.Config, logger *slog.Logger, infra *infrastructure, appServices *services) *server.Server {
 	authHandler := handlers.NewAuthHandler(appServices.authenticationService, cfg.CookieSecure)
 	catalogHandler := handlers.NewCatalogHandler(appServices.catalogService)
+	recommendationHandler := handlers.NewRecommendationHandler(appServices.recommendationService)
+	historyHandler := handlers.NewHistoryHandler(appServices.historyService)
 	healthHandler := handlers.NewHealthHandler(appServices.readinessCheck)
 
 	engine := router.New(router.Params{
-		Logger:        logger,
-		Health:        healthHandler,
-		Auth:          authHandler,
-		Catalog:       catalogHandler,
-		Authenticate:  middleware.Authenticate(appServices.tokenIssuer),
-		AllowedOrigin: cfg.AllowedOrigin,
+		Logger:         logger,
+		Health:         healthHandler,
+		Auth:           authHandler,
+		Catalog:        catalogHandler,
+		Recommendation: recommendationHandler,
+		History:        historyHandler,
+		Authenticate:   middleware.Authenticate(appServices.tokenIssuer),
+		AllowedOrigin:  cfg.AllowedOrigin,
 		Limiters: router.Limiters{
 			Login:    middleware.RateLimit(infra.cache, "login", cfg.RateLimit.AuthPerMinute, time.Minute),
 			Register: middleware.RateLimit(infra.cache, "register", cfg.RateLimit.RegisterPerHour, time.Hour),

@@ -19,6 +19,7 @@ import (
 
 	ragv1 "github.com/ivanSaichkin/rag-movie-picker/pkg/ragapi/rag/v1"
 
+	"github.com/ivanSaichkin/rag-movie-picker/backend/internal/domain/models"
 	"github.com/ivanSaichkin/rag-movie-picker/backend/internal/domain/rules"
 	"github.com/ivanSaichkin/rag-movie-picker/backend/internal/infrastructure/clients/ragclient"
 	"github.com/ivanSaichkin/rag-movie-picker/backend/internal/platform/requestid"
@@ -29,14 +30,16 @@ const testTimeout = time.Second
 type fakeRAGServer struct {
 	ragv1.UnimplementedRagServiceServer
 
-	mu        sync.Mutex
-	catalog   *ragv1.Catalog
-	movie     *ragv1.Movie
-	err       error
-	delay     time.Duration
-	requestID string
-	movieID   int64
-	calls     int
+	mu               sync.Mutex
+	catalog          *ragv1.Catalog
+	movie            *ragv1.Movie
+	recommend        *ragv1.RecommendResponse
+	err              error
+	delay            time.Duration
+	requestID        string
+	movieID          int64
+	recommendRequest *ragv1.RecommendRequest
+	calls            int
 }
 
 func (s *fakeRAGServer) GetCatalog(ctx context.Context, _ *ragv1.GetCatalogRequest) (*ragv1.Catalog, error) {
@@ -62,6 +65,26 @@ func (s *fakeRAGServer) GetMovie(ctx context.Context, request *ragv1.GetMovieReq
 		return nil, s.err
 	}
 	return s.movie, nil
+}
+
+func (s *fakeRAGServer) Recommend(ctx context.Context, request *ragv1.RecommendRequest) (*ragv1.RecommendResponse, error) {
+	s.record(ctx)
+	s.mu.Lock()
+	s.recommendRequest = request
+	s.mu.Unlock()
+	if err := s.wait(ctx); err != nil {
+		return nil, err
+	}
+	if s.err != nil {
+		return nil, s.err
+	}
+	return s.recommend, nil
+}
+
+func (s *fakeRAGServer) capturedRecommend() *ragv1.RecommendRequest {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.recommendRequest
 }
 
 func (s *fakeRAGServer) record(ctx context.Context) {
@@ -269,5 +292,96 @@ func TestDeadlineIsAppliedToTheCall(t *testing.T) {
 	_, err := client.Catalog(context.Background())
 	if !errors.Is(err, rules.ErrDeadlineExceeded) {
 		t.Fatalf("Catalog() error = %v, want ErrDeadlineExceeded", err)
+	}
+}
+
+func TestRecommendMapsRequestAndResponse(t *testing.T) {
+	server := &fakeRAGServer{recommend: &ragv1.RecommendResponse{
+		Mode:         "generated",
+		StrategyUsed: "hybrid",
+		Items: []*ragv1.Recommendation{{
+			Movie:  &ragv1.Movie{MovieId: 603, Title: "The Matrix"},
+			Reason: proto.String("подходит под запрос"),
+		}},
+		Warnings: []*ragv1.Warning{{Code: "FEWER_RESULTS", Message: "меньше, чем просили"}},
+	}}
+	client := newTestClient(t, server, testTimeout)
+
+	limit := 5
+	yearFrom, yearTo := int32(2000), int32(2015)
+	rating := 6.5
+	strategy := "hybrid"
+	generate := false
+	response, err := client.Recommend(context.Background(), models.RecommendationRequest{
+		Query: "космос",
+		Limit: &limit,
+		Filters: models.Filters{
+			GenreIDs:  []int64{878},
+			YearFrom:  &yearFrom,
+			YearTo:    &yearTo,
+			MinRating: &rating,
+		},
+		Strategy:             &strategy,
+		GenerateExplanations: &generate,
+	})
+	if err != nil {
+		t.Fatalf("Recommend() error = %v", err)
+	}
+
+	if response.Mode != "generated" || response.StrategyUsed != "hybrid" {
+		t.Fatalf("response = %+v", response)
+	}
+	if len(response.Items) != 1 || response.Items[0].Movie.MovieID != 603 {
+		t.Fatalf("items = %+v", response.Items)
+	}
+	if response.Items[0].Reason == nil || *response.Items[0].Reason != "подходит под запрос" {
+		t.Fatalf("reason = %v", response.Items[0].Reason)
+	}
+	if len(response.Warnings) != 1 || response.Warnings[0].Code != "FEWER_RESULTS" {
+		t.Fatalf("warnings = %+v", response.Warnings)
+	}
+
+	request := server.capturedRecommend()
+	if request == nil {
+		t.Fatal("server did not receive the request")
+	}
+	if request.GetQuery() != "космос" || request.GetLimit() != 5 {
+		t.Fatalf("request = query %q, limit %d", request.GetQuery(), request.GetLimit())
+	}
+	if request.GetFilters().GetGenreIds()[0] != 878 {
+		t.Fatalf("filters = %+v", request.GetFilters())
+	}
+	if request.GetFilters().YearFrom == nil || *request.GetFilters().YearFrom != 2000 {
+		t.Fatalf("year_from = %v", request.GetFilters().YearFrom)
+	}
+	if request.GetFilters().MinRating == nil || *request.GetFilters().MinRating != 6.5 {
+		t.Fatalf("min_rating = %v", request.GetFilters().MinRating)
+	}
+	if request.Strategy == nil || *request.Strategy != "hybrid" {
+		t.Fatalf("strategy = %v", request.Strategy)
+	}
+	if request.GenerateExplanations == nil || *request.GenerateExplanations {
+		t.Fatalf("generate_explanations = %v", request.GenerateExplanations)
+	}
+}
+
+func TestRecommendKeepsAbsentOptionalFields(t *testing.T) {
+	server := &fakeRAGServer{recommend: &ragv1.RecommendResponse{Mode: "empty"}}
+	client := newTestClient(t, server, testTimeout)
+
+	response, err := client.Recommend(context.Background(), models.RecommendationRequest{Query: "космос"})
+	if err != nil {
+		t.Fatalf("Recommend() error = %v", err)
+	}
+	if len(response.Items) != 0 || len(response.Warnings) != 0 {
+		t.Fatalf("response = %+v", response)
+	}
+
+	request := server.capturedRecommend()
+	if request.Limit != nil || request.Strategy != nil || request.GenerateExplanations != nil {
+		t.Fatalf("absent fields must stay absent: %+v", request)
+	}
+	if request.GetFilters() == nil {
+		t.Fatal("filters must always be sent")
 	}
 }

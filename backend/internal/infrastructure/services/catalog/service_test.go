@@ -33,6 +33,10 @@ func (f *fakeRAG) Movie(_ context.Context, movieID int64) (models.MovieCard, err
 	return f.movie, f.movieErr
 }
 
+func (f *fakeRAG) Recommend(context.Context, models.RecommendationRequest) (models.Recommendation, error) {
+	return models.Recommendation{}, errors.New("unexpected call")
+}
+
 type fakeCache struct {
 	values  map[string][]byte
 	getErr  error

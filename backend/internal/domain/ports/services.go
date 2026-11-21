@@ -42,3 +42,16 @@ type Cache interface {
 	Increment(ctx context.Context, key string, ttl time.Duration) (int64, error)
 	Delete(ctx context.Context, key string) error
 }
+
+// RecommendationService validates a search request, calls RAG and stores the
+// result snapshot in the history.
+type RecommendationService interface {
+	Recommend(ctx context.Context, userID uuid.UUID, request models.RecommendationRequest) (models.RecommendationResult, error)
+}
+
+// HistoryService serves the stored search history of one user.
+type HistoryService interface {
+	List(ctx context.Context, userID uuid.UUID, page, pageSize int) (models.HistoryPage, error)
+	Get(ctx context.Context, userID, historyID uuid.UUID) (models.HistoryEntry, error)
+	Delete(ctx context.Context, userID, historyID uuid.UUID) error
+}
