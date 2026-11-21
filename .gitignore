@@ -15,5 +15,9 @@ rag/.qdrant-*/
 rag/.tools/
 .coverage
 htmlcov/
+
+# Go backend
+bin/
+coverage.out
 evaluation/results/
 evaluation/*.ipynb
