@@ -29,6 +29,7 @@ type Params struct {
 	Catalog        *handlers.CatalogHandler
 	Recommendation *handlers.RecommendationHandler
 	History        *handlers.HistoryHandler
+	UserMovies     *handlers.UserMovieHandler
 	Authenticate   gin.HandlerFunc
 	AllowedOrigin  string
 	Limiters       Limiters
@@ -85,6 +86,11 @@ func New(params Params) *gin.Engine {
 		v1.GET("/history", with(params.Authenticate, params.History.List)...)
 		v1.GET("/history/:id", with(params.Authenticate, params.History.Get)...)
 		v1.DELETE("/history/:id", with(params.Authenticate, params.History.Delete)...)
+	}
+	if params.UserMovies != nil {
+		v1.GET("/my/movies", with(params.Authenticate, params.UserMovies.List)...)
+		v1.PUT("/my/movies/:movie_id", with(params.Authenticate, params.UserMovies.Set)...)
+		v1.DELETE("/my/movies/:movie_id", with(params.Authenticate, params.UserMovies.Delete)...)
 	}
 
 	return engine

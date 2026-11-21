@@ -6,7 +6,7 @@
 
 > Требования и целевая архитектура MVP, а не описание уже реализованных возможностей. Два сервиса: Go-бэкенд и Python RAG; взаимодействие — по gRPC.
 
-Локальная реализация Python RAG и команды запуска описаны в [rag/README.md](rag/README.md), Go-сервис — в [backend/README.md](backend/README.md). Go-бэкенд находится в разработке: реализованы HTTP-каркас, слой PostgreSQL, авторизация по JWT, каталог и карточки, подбор с сохранением истории; личные списки ещё не подключены. Интеграция сайта с бэкендом пока не реализована.
+Локальная реализация Python RAG и команды запуска описаны в [rag/README.md](rag/README.md), Go-сервис — в [backend/README.md](backend/README.md). Go-бэкенд находится в разработке: реализованы HTTP-каркас, слой PostgreSQL, авторизация по JWT, каталог и карточки, подбор с сохранением истории и личные списки. Интеграция сайта с бэкендом пока не реализована.
 
 ## Команда
 
@@ -295,7 +295,7 @@ Go предоставляет `/health` и `/ready` (процесс / PostgreSQL
 
 ## 10. Go-бэкенд (backend/)
 
-Сервис расположен в каталоге `backend/`. Реализованы HTTP-каркас, слой PostgreSQL и авторизация по JWT: конфигурация из окружения, структурные JSON-логи, `request_id`, единый конверт ошибок, `/health` и `/ready` (проверяет подключение к БД и применённую версию миграций), graceful shutdown, миграции `users`, `refresh_tokens`, `search_history`, `user_movies`, репозитории аккаунтов и refresh-токенов, Argon2id, `/api/v1/auth/register|login|refresh|logout|me`, ротация refresh-токенов, ограничение частоты через Redis или память, gRPC-клиент RAG с дедлайном и `request_id`, кеш каталога на 5 минут, `GET /catalog`, `GET /movies/{movie_id}`, `POST /recommendations` со снимком в `search_history` и `GET/DELETE /history`. Личные списки ещё не подключены.
+Сервис расположен в каталоге `backend/`. Реализованы HTTP-каркас, слой PostgreSQL и авторизация по JWT: конфигурация из окружения, структурные JSON-логи, `request_id`, единый конверт ошибок, `/health` и `/ready` (проверяет подключение к БД и применённую версию миграций), graceful shutdown, миграции `users`, `refresh_tokens`, `search_history`, `user_movies`, репозитории аккаунтов и refresh-токенов, Argon2id, `/api/v1/auth/register|login|refresh|logout|me`, ротация refresh-токенов, ограничение частоты через Redis или память, gRPC-клиент RAG с дедлайном и `request_id`, кеш каталога на 5 минут, `GET /catalog`, `GET /movies/{movie_id}`, `POST /recommendations` со снимком в `search_history`, `GET/DELETE /history` и `GET/PUT/DELETE /my/movies` со снимком карточки. Фронтенд к API ещё не подключён.
 
 Команды запуска, структура каталогов и локальные проверки описаны в [backend/README.md](backend/README.md). `/ready` возвращает 503, если база недоступна, миграции не применены или схема помечена как dirty. Redis необязателен: без `REDIS_ADDR` лимиты считаются в памяти, при недоступном Redis сервис откатывается на память с предупреждением в логе. Локально нужен `golangci-lint` версии 2.15 или новее, собранный с Go 1.26+: более старые сборки отказываются работать с `go 1.26.0` в `go.mod`.
 

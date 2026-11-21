@@ -79,6 +79,18 @@ func (stubRecommendationService) Recommend(context.Context, uuid.UUID, models.Re
 	}}, nil
 }
 
+type stubUserMovieService struct{}
+
+func (stubUserMovieService) Set(_ context.Context, _ uuid.UUID, movieID int64, update models.UserMovieUpdate) (models.UserMovie, error) {
+	return models.UserMovie{MovieID: movieID, Status: update.Status, Movie: models.MovieCard{MovieID: movieID, Title: "Alien"}}, nil
+}
+
+func (stubUserMovieService) Delete(context.Context, uuid.UUID, int64) error { return nil }
+
+func (stubUserMovieService) List(_ context.Context, _ uuid.UUID, _ models.UserMovieStatus, page, pageSize int) (models.UserMoviePage, error) {
+	return models.UserMoviePage{Page: page, PageSize: pageSize, Items: []models.UserMovie{}}, nil
+}
+
 type stubHistoryService struct{}
 
 func (stubHistoryService) List(_ context.Context, _ uuid.UUID, page, pageSize int) (models.HistoryPage, error) {
@@ -110,6 +122,7 @@ func newTestRouterWithCatalog(catalogService stubCatalogService) http.Handler {
 		Catalog:        handlers.NewCatalogHandler(catalogService),
 		Recommendation: handlers.NewRecommendationHandler(stubRecommendationService{}),
 		History:        handlers.NewHistoryHandler(stubHistoryService{}),
+		UserMovies:     handlers.NewUserMovieHandler(stubUserMovieService{}),
 		Authenticate:   middleware.Authenticate(stubIssuer{}),
 		AllowedOrigin:  testOrigin,
 	})
@@ -326,4 +339,45 @@ func TestHistoryGetRouteMapsNotFound(t *testing.T) {
 
 	recorder := testutils.Perform(t, handler, http.MethodGet, "/api/v1/history/"+uuid.NewString(), nil, authorizedHeader())
 	testutils.RequireStatus(t, recorder, http.StatusNotFound)
+}
+
+func TestUserMoviesRouteRequiresAuthorization(t *testing.T) {
+	handler := newTestRouter()
+
+	recorder := testutils.Perform(t, handler, http.MethodGet, "/api/v1/my/movies?status=watched", nil, nil)
+	testutils.RequireStatus(t, recorder, http.StatusUnauthorized)
+}
+
+func TestUserMoviesRouteReturnsPage(t *testing.T) {
+	handler := newTestRouter()
+
+	recorder := testutils.Perform(t, handler, http.MethodGet, "/api/v1/my/movies?status=watched", nil, authorizedHeader())
+	testutils.RequireStatus(t, recorder, http.StatusOK)
+
+	body := testutils.DecodeJSON[dto.UserMovieListResponse](t, recorder)
+	if body.Page != 1 || body.PageSize != 20 {
+		t.Fatalf("page = %+v", body)
+	}
+}
+
+func TestUserMovieSetRoute(t *testing.T) {
+	handler := newTestRouter()
+
+	header := authorizedHeader()
+	header.Set("Content-Type", "application/json")
+	recorder := testutils.Perform(t, handler, http.MethodPut, "/api/v1/my/movies/603",
+		strings.NewReader(`{"status":"watched","liked":true}`), header)
+	testutils.RequireStatus(t, recorder, http.StatusOK)
+
+	body := testutils.DecodeJSON[dto.UserMovieResponse](t, recorder)
+	if body.MovieID != 603 || body.Status != "watched" {
+		t.Fatalf("response = %+v", body)
+	}
+}
+
+func TestUserMovieDeleteRoute(t *testing.T) {
+	handler := newTestRouter()
+
+	recorder := testutils.Perform(t, handler, http.MethodDelete, "/api/v1/my/movies/603", nil, authorizedHeader())
+	testutils.RequireStatus(t, recorder, http.StatusNoContent)
 }

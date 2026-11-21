@@ -17,6 +17,7 @@ func newHTTPServer(cfg config.Config, logger *slog.Logger, infra *infrastructure
 	catalogHandler := handlers.NewCatalogHandler(appServices.catalogService)
 	recommendationHandler := handlers.NewRecommendationHandler(appServices.recommendationService)
 	historyHandler := handlers.NewHistoryHandler(appServices.historyService)
+	userMovieHandler := handlers.NewUserMovieHandler(appServices.userMovieService)
 	healthHandler := handlers.NewHealthHandler(appServices.readinessCheck)
 
 	engine := router.New(router.Params{
@@ -26,6 +27,7 @@ func newHTTPServer(cfg config.Config, logger *slog.Logger, infra *infrastructure
 		Catalog:        catalogHandler,
 		Recommendation: recommendationHandler,
 		History:        historyHandler,
+		UserMovies:     userMovieHandler,
 		Authenticate:   middleware.Authenticate(appServices.tokenIssuer),
 		AllowedOrigin:  cfg.AllowedOrigin,
 		Limiters: router.Limiters{
