@@ -58,6 +58,11 @@ def test_import_idempotent_and_manifest_guard(tmp_path):
         assert client.count(settings.qdrant.collection).count == 2
         manifest_path = settings.index.state_dir / "manifest.json"
         assert load_manifest(manifest_path, settings).status == "ready"
+        # Adding a runtime-only catalog field must not invalidate an existing v2 index.
+        legacy = json.loads(manifest_path.read_text(encoding="utf-8"))
+        legacy["catalog"].pop("max_candidates", None)
+        manifest_path.write_text(json.dumps(legacy), encoding="utf-8")
+        assert load_manifest(manifest_path, settings).index_id == manifest.index_id
         tampered = json.loads(manifest_path.read_text(encoding="utf-8"))
         tampered["bm25"]["avgdl"] = 99
         manifest_path.write_text(json.dumps(tampered), encoding="utf-8")

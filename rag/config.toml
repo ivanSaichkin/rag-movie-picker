@@ -1,7 +1,7 @@
 [index]
 enabled_vectors = ["bm25", "transformer"]
 state_dir = ".state"
-dataset_path = "../../TMDB 5000 Movie Dataset/tmdb_5000_movies.csv"
+dataset_path = "../../data/raw/TMDB 5000 Movie Dataset/tmdb_5000_movies.csv"
 batch_size = 16
 
 [search]
@@ -10,13 +10,14 @@ default_results = 10
 max_results = 50
 candidate_multiplier = 3
 min_candidates = 30
+max_candidates = 1000
 rrf_k = 60
-generate_explanations = false
+generate_explanations = true
 
 [bm25]
 k1 = 1.5
 b = 0.75
-query_preparation = "none" # "llm"/"none": search the original English text without an LLM
+query_preparation = "llm" # "none": search English text without LLM translation
 
 [transformer]
 model = "intfloat/multilingual-e5-small"
@@ -31,9 +32,9 @@ collection = "movies_v1"
 # path = ".qdrant" # embedded Qdrant instead of the server
 
 [llm]
-enabled = false
+enabled = true
 base_url = "https://openrouter.ai/api/v1"
-model = ""
+model = "deepseek/deepseek-v4.1-flash-1017"
 api_key_env = "LLM_API_KEY"
 timeout_seconds = 20
 max_output_tokens = 4096

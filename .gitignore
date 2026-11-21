@@ -19,3 +19,5 @@ htmlcov/
 # Go backend
 bin/
 coverage.out
+evaluation/results/
+evaluation/*.ipynb

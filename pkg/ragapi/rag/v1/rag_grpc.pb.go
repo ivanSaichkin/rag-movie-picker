@@ -19,9 +19,10 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	RagService_Recommend_FullMethodName  = "/rag.v1.RagService/Recommend"
-	RagService_GetMovie_FullMethodName   = "/rag.v1.RagService/GetMovie"
-	RagService_GetCatalog_FullMethodName = "/rag.v1.RagService/GetCatalog"
+	RagService_Recommend_FullMethodName             = "/rag.v1.RagService/Recommend"
+	RagService_GetMovie_FullMethodName              = "/rag.v1.RagService/GetMovie"
+	RagService_GetCatalog_FullMethodName            = "/rag.v1.RagService/GetCatalog"
+	RagService_InspectRecommendation_FullMethodName = "/rag.v1.RagService/InspectRecommendation"
 )
 
 // RagServiceClient is the client API for RagService service.
@@ -31,6 +32,7 @@ type RagServiceClient interface {
 	Recommend(ctx context.Context, in *RecommendRequest, opts ...grpc.CallOption) (*RecommendResponse, error)
 	GetMovie(ctx context.Context, in *GetMovieRequest, opts ...grpc.CallOption) (*Movie, error)
 	GetCatalog(ctx context.Context, in *GetCatalogRequest, opts ...grpc.CallOption) (*Catalog, error)
+	InspectRecommendation(ctx context.Context, in *RecommendRequest, opts ...grpc.CallOption) (*RecommendationInspection, error)
 }
 
 type ragServiceClient struct {
@@ -71,6 +73,16 @@ func (c *ragServiceClient) GetCatalog(ctx context.Context, in *GetCatalogRequest
 	return out, nil
 }
 
+func (c *ragServiceClient) InspectRecommendation(ctx context.Context, in *RecommendRequest, opts ...grpc.CallOption) (*RecommendationInspection, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(RecommendationInspection)
+	err := c.cc.Invoke(ctx, RagService_InspectRecommendation_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // RagServiceServer is the server API for RagService service.
 // All implementations must embed UnimplementedRagServiceServer
 // for forward compatibility.
@@ -78,6 +90,7 @@ type RagServiceServer interface {
 	Recommend(context.Context, *RecommendRequest) (*RecommendResponse, error)
 	GetMovie(context.Context, *GetMovieRequest) (*Movie, error)
 	GetCatalog(context.Context, *GetCatalogRequest) (*Catalog, error)
+	InspectRecommendation(context.Context, *RecommendRequest) (*RecommendationInspection, error)
 	mustEmbedUnimplementedRagServiceServer()
 }
 
@@ -96,6 +109,9 @@ func (UnimplementedRagServiceServer) GetMovie(context.Context, *GetMovieRequest)
 }
 func (UnimplementedRagServiceServer) GetCatalog(context.Context, *GetCatalogRequest) (*Catalog, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetCatalog not implemented")
+}
+func (UnimplementedRagServiceServer) InspectRecommendation(context.Context, *RecommendRequest) (*RecommendationInspection, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method InspectRecommendation not implemented")
 }
 func (UnimplementedRagServiceServer) mustEmbedUnimplementedRagServiceServer() {}
 func (UnimplementedRagServiceServer) testEmbeddedByValue()                    {}
@@ -172,6 +188,24 @@ func _RagService_GetCatalog_Handler(srv interface{}, ctx context.Context, dec fu
 	return interceptor(ctx, in, info, handler)
 }
 
+func _RagService_InspectRecommendation_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(RecommendRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(RagServiceServer).InspectRecommendation(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: RagService_InspectRecommendation_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(RagServiceServer).InspectRecommendation(ctx, req.(*RecommendRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // RagService_ServiceDesc is the grpc.ServiceDesc for RagService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -190,6 +224,10 @@ var RagService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "GetCatalog",
 			Handler:    _RagService_GetCatalog_Handler,
+		},
+		{
+			MethodName: "InspectRecommendation",
+			Handler:    _RagService_InspectRecommendation_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
