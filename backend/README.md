@@ -12,6 +12,8 @@ HTTP-сервис RAG Movie Picker: аккаунты, авторизация п�
 
 Вызовы Python RAG ещё не подключены: `/catalog`, `/movies/{id}`, `/recommendations`, `/history` и `/my/movies` появятся в следующих частях.
 
+Как устроена авторизация, что и где хранится — в [docs/auth.md](docs/auth.md).
+
 ## Структура
 
 ```text
@@ -35,6 +37,7 @@ backend/
 │       ├── handlers/           # health, auth
 │       └── server/             # http.Server и middleware
 ├── pkg/testutils/              # httptest-хелперы для тестов
+├── docs/                       # детальная документация сервиса
 ├── Makefile
 └── .golangci.yml
 ```
