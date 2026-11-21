@@ -93,7 +93,7 @@ func newStoredRecommendation(response models.Recommendation) StoredRecommendatio
 
 func newRecommendationFilters(filters models.Filters) RecommendationFilters {
 	return RecommendationFilters{
-		GenreIDs:  append([]int64(nil), filters.GenreIDs...),
+		GenreIDs:  append([]int64{}, filters.GenreIDs...),
 		YearFrom:  filters.YearFrom,
 		YearTo:    filters.YearTo,
 		MinRating: filters.MinRating,

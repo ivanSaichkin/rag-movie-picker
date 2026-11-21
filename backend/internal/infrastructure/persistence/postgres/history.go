@@ -2,7 +2,6 @@ package postgres
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 
 	"github.com/google/uuid"
@@ -25,13 +24,13 @@ func NewHistoryRepository(pool *pgxpool.Pool) *History {
 // Create inserts a snapshot and returns the generated identifier and creation
 // time.
 func (r *History) Create(ctx context.Context, entry models.HistoryEntry) (models.HistoryEntry, error) {
-	filters, err := json.Marshal(historyFiltersFromModel(entry.Filters))
+	filters, err := encodeStoredFilters(entry.Filters)
 	if err != nil {
-		return models.HistoryEntry{}, fmt.Errorf("encode history filters: %w", err)
+		return models.HistoryEntry{}, err
 	}
-	response, err := json.Marshal(historyResponseFromModel(entry.Response))
+	response, err := encodeStoredResponse(entry.Response)
 	if err != nil {
-		return models.HistoryEntry{}, fmt.Errorf("encode history response: %w", err)
+		return models.HistoryEntry{}, err
 	}
 
 	const query = `
@@ -76,7 +75,7 @@ func (r *History) List(ctx context.Context, userID uuid.UUID, limit, offset int)
 		if err := rows.Scan(&item.ID, &item.Query, &rawFilters, &item.RequestedLimit, &item.CreatedAt); err != nil {
 			return nil, 0, fmt.Errorf("scan history entry: %w", err)
 		}
-		filters, err := decodeHistoryFilters(rawFilters)
+		filters, err := decodeStoredFilters(rawFilters)
 		if err != nil {
 			return nil, 0, err
 		}
@@ -114,11 +113,11 @@ func (r *History) Get(ctx context.Context, userID, historyID uuid.UUID) (models.
 		return models.HistoryEntry{}, wrapQueryError("find history entry", err)
 	}
 
-	filters, err := decodeHistoryFilters(rawFilters)
+	filters, err := decodeStoredFilters(rawFilters)
 	if err != nil {
 		return models.HistoryEntry{}, err
 	}
-	response, err := decodeHistoryResponse(rawResponse)
+	response, err := decodeStoredResponse(rawResponse)
 	if err != nil {
 		return models.HistoryEntry{}, err
 	}
