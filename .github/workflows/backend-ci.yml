@@ -97,3 +97,18 @@ jobs:
       - name: Build backend image
         working-directory: .
         run: docker build -f backend/Dockerfile -t rag-movie-picker-backend:ci .
+
+  e2e:
+    name: End-to-end
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: backend/go.mod
+          cache-dependency-path: backend/go.sum
+      - name: Run e2e
+        run: go test -tags=e2e -count=1 ./test/e2e/
