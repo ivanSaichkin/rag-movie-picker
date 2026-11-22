@@ -15,7 +15,7 @@ HTTP-сервис RAG Movie Picker: аккаунты, авторизация п�
 
 Каталог, карточки, подбор и первые записи в личные списки обращаются к Python RAG: при недоступном сервисе такие ручки отвечают 503 (каталог может отдаться из кеша), а вход продолжит работать. Фронтенд к API ещё не подключён.
 
-Как устроена авторизация, что и где хранится — в [docs/auth.md](docs/auth.md).
+Документация по слоям: [auth.md](docs/auth.md), [database.md](docs/database.md), [caching.md](docs/caching.md), [cache.md](docs/cache.md) (кеш каталога), [rate-limiting.md](docs/rate-limiting.md), [api.md](docs/api.md).
 
 ## Контракт RAG
 
