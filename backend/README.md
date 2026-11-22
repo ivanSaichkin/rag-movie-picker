@@ -13,13 +13,15 @@ HTTP-сервис RAG Movie Picker: аккаунты, авторизация п�
 - подбор `POST /api/v1/recommendations` с валидацией фильтров по каталогу и снимком результата в `search_history`, история `GET/DELETE /api/v1/history`;
 - личные списки `GET/PUT/DELETE /api/v1/my/movies` со снимком карточки из RAG на первой записи.
 
-Каталог, карточки, подбор и первые записи в личные списки обращаются к Python RAG: при недоступном сервисе такие ручки отвечают 503 (каталог может отдаться из кеша), а вход продолжит работать. Фронтенд к API ещё не подключён.
+Каталог, карточки, подбор и первые записи в личные списки обращаются к Python RAG: при недоступном сервисе такие ручки отвечают 503 (каталог может отдаться из кеша), а вход продолжит работать. Фронтенд использует тот же origin, что и API.
 
 Как устроена авторизация, что и где хранится — в [docs/auth.md](docs/auth.md).
 
 ## Контракт RAG
 
 Контракт — [proto/rag/v1/rag.proto](../proto/rag/v1/rag.proto), сгенерированные клиенты — в [pkg/ragapi](../pkg/ragapi). Бэкенд использует только `Recommend`, `GetMovie` и `GetCatalog`.
+
+`POST /api/v1/recommendations` передаёт в RAG поле `disable_llm` для отключения всех обращений к LLM в текущем запросе. Поле `generate_explanations` управляет отдельно финальным выбором.
 
 Новые возможности контракта на нашей стороне **не реализованы**:
 
@@ -71,6 +73,7 @@ export JWT_SECRET='dev-secret-that-is-at-least-32-chars'
 go run ./cmd/migrate up        # применить миграции, SQL встроен в бинарник
 go run ./cmd/migrate version   # версия схемы и флаг dirty
 go run ./cmd/migrate down 1    # откатить одну миграцию
+export FRONTEND_DIR=../frontend # необязательно для запуска только API
 make run                       # go run ./cmd/api, без REDIS_ADDR кеш в памяти
 
 curl -i 127.0.0.1:8080/health
@@ -88,7 +91,7 @@ curl -i 127.0.0.1:8080/health
 docker compose down -v
 ```
 
-Compose поднимает PostgreSQL с volume `pgdata`, Redis, одноразовый сервис миграций и API. Наружу публикуется только API на `127.0.0.1:${HTTP_PORT:-8080}`; порты БД и Redis не публикуются. Профиль RAG в compose не входит: адрес задаётся `RAG_GRPC_ADDR_CONTAINER` (по умолчанию `host.docker.internal:50051`), при недоступном RAG каталог и подбор отвечают 503. Фронтенд запускается отдельно и обращается к API.
+Compose поднимает PostgreSQL с volume `pgdata`, Redis, одноразовый сервис миграций и Go. Сайт и API доступны по адресу `http://127.0.0.1:8080` при стандартных настройках. При смене `HTTP_PORT` укажите соответствующий `ALLOWED_ORIGIN`. Python запускается отдельно. Compose подключается к нему по `RAG_GRPC_ADDR_CONTAINER` (по умолчанию `host.docker.internal:50051`).
 
 Цели Makefile: `docker-build`, `up`, `down`, `logs`.
 

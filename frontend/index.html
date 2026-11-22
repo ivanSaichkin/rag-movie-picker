@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#141617">
-  <meta name="description" content="Найдите фильм под своё настроение. Локальный прототип Movie Picker с чатом и фильтрами.">
+  <meta name="description" content="Найдите фильм под своё настроение. Movie Picker подбирает фильмы по запросу и фильтрам.">
   <title>Movie Picker — кино под настроение</title>
   <link rel="icon" href="./favicon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="./styles.css">
@@ -34,7 +34,11 @@
       <button class="nav-link" type="button" data-about>О проекте</button>
     </nav>
     <div class="header-right">
-      <button class="demo-label" type="button" data-about aria-label="Демо-версия: о проекте"><span class="status-dot"></span>Демо-версия</button>
+      <button class="nav-link account-button" id="auth-open" type="button" disabled>Войти</button>
+      <div class="account" id="account" hidden>
+        <span class="account-email" id="account-email"></span>
+        <button class="nav-link account-button" id="auth-logout" type="button">Выйти</button>
+      </div>
       <a class="github-link" href="https://github.com/ivanSaichkin/rag-movie-picker" target="_blank" rel="noopener noreferrer">GitHub <svg class="icon"><use href="#i-external"/></svg></a>
     </div>
   </header>
@@ -49,18 +53,7 @@
       <form id="filters-form">
         <fieldset class="filter-group">
           <legend>Жанры <span class="field-note">можно несколько</span></legend>
-          <div class="genre-options" id="genre-options">
-            <label class="genre-chip"><input type="checkbox" name="genres" value="Science Fiction"><span>Фантастика</span></label>
-            <label class="genre-chip"><input type="checkbox" name="genres" value="Drama"><span>Драма</span></label>
-            <label class="genre-chip"><input type="checkbox" name="genres" value="Comedy"><span>Комедия</span></label>
-            <label class="genre-chip"><input type="checkbox" name="genres" value="Thriller"><span>Триллер</span></label>
-            <label class="genre-chip"><input type="checkbox" name="genres" value="Adventure"><span>Приключения</span></label>
-            <label class="genre-chip"><input type="checkbox" name="genres" value="Romance"><span>Мелодрама</span></label>
-            <label class="genre-chip"><input type="checkbox" name="genres" value="Crime"><span>Криминал</span></label>
-            <label class="genre-chip"><input type="checkbox" name="genres" value="Animation"><span>Мультфильм</span></label>
-            <label class="genre-chip"><input type="checkbox" name="genres" value="Fantasy"><span>Фэнтези</span></label>
-            <label class="genre-chip"><input type="checkbox" name="genres" value="Horror"><span>Ужасы</span></label>
-          </div>
+          <div class="genre-options" id="genre-options"><span class="field-note">Жанры доступны после входа.</span></div>
         </fieldset>
         <fieldset class="filter-group">
           <legend>Год выхода</legend>
@@ -83,9 +76,13 @@
           <label for="result-count">Сколько фильмов?</label>
           <div class="stepper">
             <button id="count-minus" type="button" aria-label="Уменьшить количество">−</button>
-            <input id="result-count" name="limit" type="number" min="1" max="50" value="10" inputmode="numeric">
+            <input id="result-count" name="limit" type="number" min="1" max="50" value="10" inputmode="numeric" required>
             <button id="count-plus" type="button" aria-label="Увеличить количество">+</button>
           </div>
+        </div>
+        <div class="filter-group llm-setting">
+          <label class="llm-toggle"><input id="use-llm" type="checkbox" name="use_llm" aria-describedby="llm-note"><span>Использовать LLM</span></label>
+          <p class="field-note" id="llm-note">Модель подбирает фильмы из найденных и объясняет выбор. Запрос передаётся в OpenRouter.</p>
         </div>
         <button class="reset-button" id="reset-filters" type="button"><svg class="icon"><use href="#i-refresh"/></svg>Сбросить фильтры</button>
         <button class="mobile-apply" id="apply-filters" type="button">Готово <svg class="icon"><use href="#i-check"/></svg></button>
@@ -114,7 +111,7 @@
             </svg>
           </div>
           <h1 id="welcome-title">У каждого вечера<br>есть свой фильм<span>.</span></h1>
-          <p class="welcome-description">Расскажите, чего хочется, — найдём кино<br class="desktop-break"> под ваше настроение и объясним почему.</p>
+          <p class="welcome-description">Расскажите, чего хочется, — найдём кино<br class="desktop-break"> под ваше настроение.</p>
         </section>
 
         <section class="conversation" id="conversation" aria-label="История подбора" tabindex="-1" hidden>
@@ -147,9 +144,21 @@
     <h2 id="about-title">Не знаете, что посмотреть?<br>Начнём с настроения.</h2>
     <p>Movie Picker помогает найти кино по вашим пожеланиям. Задайте жанры, год и рейтинг слева, а в чате расскажите о темах, атмосфере или сюжете.</p>
     <div class="about-steps"><span><b>01</b> Расскажите о настроении</span><span><b>02</b> Уточните предпочтения</span><span><b>03</b> Найдите свой фильм</span></div>
-    <p class="about-demo">Сейчас это самостоятельный фронтенд-прототип с <span id="about-catalog-count"></span> фильмами из TMDB 5000. Подбор работает локально по словам и темам. Собственный BM25, Qdrant и внешний LLM будут подключаться через серверный API.</p>
-    <p class="about-privacy">Запросы никуда не отправляются. История исчезает при обновлении страницы.</p>
+    <p>Фильмы подбираются по каталогу TMDB 5000. Запросы и подборки сохраняются в истории аккаунта. При включённом LLM текст запроса передаётся в OpenRouter.</p>
     <button class="primary-button" id="start-picking" type="button">Выбрать кино <svg class="icon"><use href="#i-external"/></svg></button>
+  </dialog>
+  <dialog class="about-dialog auth-dialog" id="auth-dialog" aria-labelledby="auth-title">
+    <div class="dialog-heading">
+      <h2 id="auth-title">Вход</h2>
+      <button class="icon-button" id="auth-close" type="button" aria-label="Закрыть окно"><svg class="icon"><use href="#i-close"/></svg></button>
+    </div>
+    <form class="auth-form" id="auth-form">
+      <label>Почта<input id="auth-email" type="email" name="email" maxlength="254" autocomplete="username" required></label>
+      <label>Пароль<input id="auth-password" type="password" name="password" autocomplete="current-password" required></label>
+      <p class="form-error" id="auth-error" role="alert" hidden></p>
+      <button class="primary-button" id="auth-submit" type="submit">Войти</button>
+      <button class="auth-mode" id="auth-mode" type="button">Создать аккаунт</button>
+    </form>
   </dialog>
   <noscript><div class="noscript-notice">Для работы чата и фильтров включите JavaScript в браузере.</div></noscript>
 </body>

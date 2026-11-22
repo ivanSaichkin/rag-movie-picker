@@ -45,8 +45,12 @@ button:disabled { cursor: default; }
 .nav-link:hover, .nav-link.active { color: var(--text); }
 .nav-link.active::after { content: ""; height: 2px; background: #d8dbcd; position: absolute; bottom: -1px; left: 0; right: 0; }
 .header-right { display: flex; align-items: center; gap: 26px; font-size: 12px; }
-.demo-label { display: flex; align-items: center; gap: 8px; color: #b8bfba; }
-.status-dot { width: 6px; height: 6px; border-radius: 50%; background: #65b89a; box-shadow: 0 0 0 3px #65b89a0d; }
+.account { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.account-email { max-width: 20ch; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--muted); }
+.account-button { white-space: nowrap; }
+.llm-toggle { display: flex; align-items: center; gap: 10px; cursor: pointer; }
+.llm-toggle input { margin: 0; width: 16px; height: 16px; accent-color: var(--blue); }
+.llm-setting p { margin: 7px 0 0 26px; }
 .github-link { display: flex; gap: 5px; align-items: center; color: var(--muted); }
 .github-link:hover { color: var(--text); }
 .github-link .icon { width: 16px; height: 16px; }
@@ -173,7 +177,15 @@ input::-webkit-inner-spin-button, input::-webkit-outer-spin-button { appearance:
 .about-steps { display: grid; gap: 12px; margin: 24px 0; }
 .about-steps span { font-size: 12px; color: #ccd6c3; }
 .about-steps b { font-size: 10px; color: var(--blue); margin-right: 12px; font-weight: 500; }
-.about-dialog .about-demo, .about-dialog .about-privacy { font-size: 11px; color: #939f8d; }
+.auth-dialog { max-width: 400px; }
+.auth-dialog h2 { margin: 0 0 16px; }
+.auth-form { display: grid; gap: 14px; }
+.auth-form label { display: grid; gap: 5px; color: var(--muted); }
+.auth-form input { width: 100%; padding: 10px 12px; color: var(--text); background: var(--surface); border: 1px solid var(--line); border-radius: 6px; }
+.auth-form .form-error { color: #ffad98; margin: 0; }
+.auth-form .primary-button { justify-content: center; }
+.auth-mode { justify-self: center; color: var(--blue); }
+.auth-form button:disabled { opacity: .55; }
 .primary-button { display: inline-flex; gap: 12px; align-items: center; border-radius: 6px; padding: 10px 15px; background: #d7d9c8; color: #242b22; margin-top: 15px; font-size: 12px; }
 .primary-button .icon { width: 16px; height: 16px; }
 .drawer-close, .mobile-filter-toggle, .mobile-apply { display: none; }
@@ -220,7 +232,7 @@ input::-webkit-inner-spin-button, input::-webkit-outer-spin-button { appearance:
   .site-header { padding: 0 20px; height: 65px; gap: 12px; }
   .brand { font-size: 24px; gap: 10px; }
   .main-nav { display: none; }
-  .demo-label { font-size: 10px; gap: 6px; }
+  .account-email { display: none; }
   .app-shell { height: calc(100svh - 65px); min-height: 650px; }
   .workspace-toolbar { padding: 0 20px; height: 58px; }
   .chat-stage { padding: 0 18px 20px; }

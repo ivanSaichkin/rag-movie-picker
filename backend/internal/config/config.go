@@ -69,6 +69,7 @@ type RedisConfig struct {
 // Config is the runtime configuration of the API service.
 type Config struct {
 	HTTPAddress            string
+	FrontendDir            string
 	LogLevel               slog.Level
 	DatabaseURL            string
 	PostgresMaxConnections int32
@@ -143,6 +144,7 @@ func loadHTTP(cfg *Config) error {
 		return fmt.Errorf("HTTP_ADDR: %w", err)
 	}
 
+	cfg.FrontendDir = strings.TrimSpace(os.Getenv("FRONTEND_DIR"))
 	level, err := LoadLogLevel()
 	if err != nil {
 		return err

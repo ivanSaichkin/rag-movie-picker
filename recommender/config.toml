@@ -34,7 +34,7 @@ collection = "movies_v1"
 [llm]
 enabled = true
 base_url = "https://openrouter.ai/api/v1"
-model = "deepseek/deepseek-v4.1-flash-1017"
+model = "google/gemma-4-26b-a4b-it:free"
 api_key_env = "LLM_API_KEY"
 timeout_seconds = 20
 max_output_tokens = 4096

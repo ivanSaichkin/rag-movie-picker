@@ -129,6 +129,7 @@ class RagHandler(rpc.RagServiceServicer):
             generate_explanations=request.generate_explanations if request.HasField("generate_explanations") else None,
             candidate_limit=request.candidate_limit if request.HasField("candidate_limit") else None,
             include_diagnostics=include_diagnostics,
+            disable_llm=request.disable_llm,
             filters=Filters(
                 genre_ids=list(filters.genre_ids),
                 year_from=filters.year_from if filters.HasField("year_from") else None,

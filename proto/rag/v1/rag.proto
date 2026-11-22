@@ -22,6 +22,8 @@ message RecommendRequest {
   optional string strategy = 4;
   optional bool generate_explanations = 5;
   optional uint32 candidate_limit = 6;
+  // Skip LLM query preparation and final reranking for this request.
+  bool disable_llm = 7;
 }
 message Genre { int64 id = 1; string name = 2; }
 message Movie {

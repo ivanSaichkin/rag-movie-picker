@@ -30,6 +30,7 @@ func newHTTPServer(cfg config.Config, logger *slog.Logger, infra *infrastructure
 		UserMovies:     userMovieHandler,
 		Authenticate:   middleware.Authenticate(appServices.tokenIssuer),
 		AllowedOrigin:  cfg.AllowedOrigin,
+		FrontendDir:    cfg.FrontendDir,
 		Limiters: router.Limiters{
 			Login:    middleware.RateLimit(infra.cache, "login", cfg.RateLimit.AuthPerMinute, time.Minute),
 			Register: middleware.RateLimit(infra.cache, "register", cfg.RateLimit.RegisterPerHour, time.Hour),

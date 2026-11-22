@@ -12,6 +12,7 @@ import (
 	"net/http"
 	"net/http/cookiejar"
 	"net/url"
+	"strings"
 	"testing"
 	"time"
 
@@ -49,6 +50,7 @@ func TestBackendEndToEnd(t *testing.T) {
 
 	cfg := config.Config{
 		HTTPAddress:            httpAddress,
+		FrontendDir:            "../../../frontend",
 		LogLevel:               slog.LevelDebug,
 		DatabaseURL:            dsn,
 		PostgresMaxConnections: 5,
@@ -93,8 +95,18 @@ func TestBackendEndToEnd(t *testing.T) {
 	}
 	client := &http.Client{Jar: jar, Timeout: 15 * time.Second}
 
+	statusCode, body := do(t, client, http.MethodGet, baseURL+"/", nil, "")
+	requireStatus(t, statusCode, http.StatusOK, body)
+	if !strings.Contains(string(body), "auth-dialog") {
+		t.Fatal("the same origin must serve the login UI")
+	}
+	for _, asset := range []string{"/app.js", "/api.js", "/styles.css", "/favicon.svg"} {
+		statusCode, body = do(t, client, http.MethodGet, baseURL+asset, nil, "")
+		requireStatus(t, statusCode, http.StatusOK, body)
+	}
+
 	// Registration starts a session.
-	statusCode, body := do(t, client, http.MethodPost, baseURL+"/api/v1/auth/register", map[string]string{
+	statusCode, body = do(t, client, http.MethodPost, baseURL+"/api/v1/auth/register", map[string]string{
 		"email":    e2eEmail,
 		"password": "password123",
 	}, "")
@@ -192,6 +204,22 @@ func TestBackendEndToEnd(t *testing.T) {
 	unmarshal(t, body, &historyEntry)
 	if historyEntry.Query != "космос" || historyEntry.Response.Mode != "generated" || len(historyEntry.Response.Items) != 1 {
 		t.Fatalf("history entry = %+v", historyEntry)
+	}
+
+	statusCode, body = do(t, client, http.MethodPost, baseURL+"/api/v1/recommendations", map[string]any{
+		"query":                 "космос",
+		"limit":                 5,
+		"filters":               map[string]any{"genre_ids": []int64{878}},
+		"generate_explanations": false,
+		"disable_llm":           true,
+	}, accessToken)
+	requireStatus(t, statusCode, http.StatusOK, body)
+	var noLLM struct {
+		Mode string `json:"mode"`
+	}
+	unmarshal(t, body, &noLLM)
+	if noLLM.Mode != "retrieval_only" {
+		t.Fatalf("request without LLM = %+v", noLLM)
 	}
 
 	// Personal lists: first write takes the card from RAG.
@@ -371,8 +399,8 @@ func (fakeRAGServer) GetMovie(_ context.Context, request *ragv1.GetMovieRequest)
 	}, nil
 }
 
-func (fakeRAGServer) Recommend(context.Context, *ragv1.RecommendRequest) (*ragv1.RecommendResponse, error) {
-	return &ragv1.RecommendResponse{
+func (fakeRAGServer) Recommend(_ context.Context, request *ragv1.RecommendRequest) (*ragv1.RecommendResponse, error) {
+	response := &ragv1.RecommendResponse{
 		Mode:         "generated",
 		StrategyUsed: "hybrid",
 		Items: []*ragv1.Recommendation{{
@@ -380,7 +408,12 @@ func (fakeRAGServer) Recommend(context.Context, *ragv1.RecommendRequest) (*ragv1
 			Reason: proto.String("подходит под запрос"),
 		}},
 		Warnings: []*ragv1.Warning{{Code: "FEWER_RESULTS", Message: "меньше, чем просили"}},
-	}, nil
+	}
+	if request.GetDisableLlm() {
+		response.Mode = "retrieval_only"
+		response.Items[0].Reason = nil
+	}
+	return response, nil
 }
 
 func do(t *testing.T, client *http.Client, method, endpoint string, payload any, accessToken string) (int, []byte) {

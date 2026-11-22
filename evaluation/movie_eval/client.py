@@ -7,7 +7,7 @@ import grpc
 
 from movie_eval.goldenset import GoldenQuery
 
-RAG_SOURCE = Path(__file__).resolve().parents[2] / "rag" / "src"
+RAG_SOURCE = Path(__file__).resolve().parents[2] / "recommender" / "src"
 sys.path.insert(0, str(RAG_SOURCE))
 # Use the repository's generated stubs without installing the full RAG service.
 from rag.v1 import rag_pb2 as pb  # noqa: E402

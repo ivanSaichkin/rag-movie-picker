@@ -30,7 +30,7 @@ from movie_eval.reporting import config_snapshot, environment_snapshot, summariz
 EVALUATION_DIR = Path(__file__).resolve().parent
 PROJECT_DIR = EVALUATION_DIR.parent
 DEFAULT_GOLDENSET = EVALUATION_DIR / "goldenset" / "queries.jsonl"
-DEFAULT_CONFIG = PROJECT_DIR / "rag" / "config.toml"
+DEFAULT_CONFIG = PROJECT_DIR / "recommender" / "config.toml"
 
 
 def parse_arguments(argv: list[str] | None = None) -> argparse.Namespace:

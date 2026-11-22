@@ -4,6 +4,7 @@ package router
 import (
 	"log/slog"
 	"os"
+	"path/filepath"
 
 	"github.com/gin-gonic/gin"
 	"github.com/gin-gonic/gin/binding"
@@ -32,6 +33,7 @@ type Params struct {
 	UserMovies     *handlers.UserMovieHandler
 	Authenticate   gin.HandlerFunc
 	AllowedOrigin  string
+	FrontendDir    string
 	Limiters       Limiters
 }
 
@@ -63,6 +65,13 @@ func New(params Params) *gin.Engine {
 	engine.NoMethod(func(c *gin.Context) {
 		dto.Abort(c, dto.CodeMethodNotAllowed, "Метод не поддерживается")
 	})
+
+	if params.FrontendDir != "" {
+		engine.StaticFile("/", filepath.Join(params.FrontendDir, "index.html"))
+		for _, asset := range []string{"app.js", "api.js", "styles.css", "favicon.svg"} {
+			engine.StaticFile("/"+asset, filepath.Join(params.FrontendDir, asset))
+		}
+	}
 
 	engine.GET("/health", params.Health.Liveness)
 	engine.GET("/ready", params.Health.Readiness)
