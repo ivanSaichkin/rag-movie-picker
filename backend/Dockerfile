@@ -23,6 +23,8 @@ RUN addgroup -S app && adduser -S -G app app
 
 COPY --from=build /out/api /app/api
 COPY --from=build /out/migrate /app/migrate
+COPY frontend/ /app/frontend/
+ENV FRONTEND_DIR=/app/frontend
 
 USER app
 EXPOSE 8080

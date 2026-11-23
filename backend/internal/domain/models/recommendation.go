@@ -13,6 +13,7 @@ type RecommendationRequest struct {
 	Filters              Filters
 	Strategy             *string
 	GenerateExplanations *bool
+	DisableLLM           bool
 }
 
 // RecommendedMovie is a movie card with an optional explanation.

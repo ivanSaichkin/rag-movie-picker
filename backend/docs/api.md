@@ -21,7 +21,7 @@
 
 Все ручки `/api/v1` требуют access-токен в `Authorization: Bearer <jwt>`, кроме:
 
-- `POST /auth/register`, `POST /auth/login` — без токена;
+- `POST /auth/login` не требует токена. `POST /auth/register` также не требует токена, но доступен только при `REGISTRATION_ENABLED=true`;
 - `POST /auth/refresh` — по refresh-cookie;
 - `POST /auth/logout` — по refresh-cookie, без access-токена.
 
@@ -126,7 +126,7 @@ CORS-заголовков сервис не отдаёт. Сайт должен 
 
 | Ручка | Доступ | Успех | Тело |
 |---|---|---|---|
-| `POST /api/v1/auth/register` | без токена | 201 | `user`, `access_token`, `expires_in` |
+| `POST /api/v1/auth/register` | без токена, только при `REGISTRATION_ENABLED=true` | 201 | `user`, `access_token`, `expires_in` |
 | `POST /api/v1/auth/login` | без токена | 200 | то же |
 | `POST /api/v1/auth/refresh` | refresh-cookie | 200 | `access_token`, `expires_in` |
 | `POST /api/v1/auth/logout` | refresh-cookie | 204 | — |
@@ -376,7 +376,7 @@ CORS-заголовков сервис не отдаёт. Сайт должен 
 | `PUT /my/movies/{id}` | Идемпотентен по состоянию: тот же статус/оценка не создают дубль (upsert); `updated_at` меняется |
 | `DELETE` | Повтор даёт 404, а не 204: удобно для очистки, но не «идемпотентен по коду» |
 | `POST /recommendations` | Не идемпотентен: каждый вызов создаёт запись истории |
-| `POST /auth/register` | Повтор с тем же email → 409 |
+| `POST /auth/register` | По умолчанию → 404. При включённой регистрации повтор с тем же email → 409 |
 | `POST /auth/login` | Каждый вход создаёт новую refresh-сессию |
 | `POST /auth/refresh` | Ротирует токен; повтор старого токена отзывает семью |
 | `GET` | Безопасны, без побочных эффектов |

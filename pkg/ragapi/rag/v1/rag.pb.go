@@ -97,8 +97,10 @@ type RecommendRequest struct {
 	Strategy             *string                `protobuf:"bytes,4,opt,name=strategy,proto3,oneof" json:"strategy,omitempty"`
 	GenerateExplanations *bool                  `protobuf:"varint,5,opt,name=generate_explanations,json=generateExplanations,proto3,oneof" json:"generate_explanations,omitempty"`
 	CandidateLimit       *uint32                `protobuf:"varint,6,opt,name=candidate_limit,json=candidateLimit,proto3,oneof" json:"candidate_limit,omitempty"`
-	unknownFields        protoimpl.UnknownFields
-	sizeCache            protoimpl.SizeCache
+	// Skip LLM query preparation and final reranking for this request.
+	DisableLlm    bool `protobuf:"varint,7,opt,name=disable_llm,json=disableLlm,proto3" json:"disable_llm,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *RecommendRequest) Reset() {
@@ -171,6 +173,13 @@ func (x *RecommendRequest) GetCandidateLimit() uint32 {
 		return *x.CandidateLimit
 	}
 	return 0
+}
+
+func (x *RecommendRequest) GetDisableLlm() bool {
+	if x != nil {
+		return x.DisableLlm
+	}
+	return false
 }
 
 type Genre struct {
@@ -1064,14 +1073,16 @@ const file_rag_v1_rag_proto_rawDesc = "" +
 	"_year_fromB\n" +
 	"\n" +
 	"\b_year_toB\r\n" +
-	"\v_min_rating\"\xbc\x02\n" +
+	"\v_min_rating\"\xdd\x02\n" +
 	"\x10RecommendRequest\x12\x14\n" +
 	"\x05query\x18\x01 \x01(\tR\x05query\x12\x19\n" +
 	"\x05limit\x18\x02 \x01(\rH\x00R\x05limit\x88\x01\x01\x12)\n" +
 	"\afilters\x18\x03 \x01(\v2\x0f.rag.v1.FiltersR\afilters\x12\x1f\n" +
 	"\bstrategy\x18\x04 \x01(\tH\x01R\bstrategy\x88\x01\x01\x128\n" +
 	"\x15generate_explanations\x18\x05 \x01(\bH\x02R\x14generateExplanations\x88\x01\x01\x12,\n" +
-	"\x0fcandidate_limit\x18\x06 \x01(\rH\x03R\x0ecandidateLimit\x88\x01\x01B\b\n" +
+	"\x0fcandidate_limit\x18\x06 \x01(\rH\x03R\x0ecandidateLimit\x88\x01\x01\x12\x1f\n" +
+	"\vdisable_llm\x18\a \x01(\bR\n" +
+	"disableLlmB\b\n" +
 	"\x06_limitB\v\n" +
 	"\t_strategyB\x18\n" +
 	"\x16_generate_explanationsB\x12\n" +

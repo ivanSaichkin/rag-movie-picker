@@ -1,4 +1,4 @@
-import { catalog } from './catalog.js';
+import { ApiError, MoviePickerApi } from './api.js?v=2';
 
 const $ = (selector) => document.querySelector(selector);
 const dom = {
@@ -8,6 +8,11 @@ const dom = {
   workspace: $('#workspace'), welcome: $('#welcome'), suggestions: $('#suggestions'),
   conversation: $('#conversation'), messages: $('#messages'), activeFilters: $('#active-filters'),
   about: $('#about-dialog'),
+  genres: $('#genre-options'), useLLM: $('#use-llm'), auth: $('#auth-dialog'),
+  authOpen: $('#auth-open'), authLogout: $('#auth-logout'), account: $('#account'),
+  accountEmail: $('#account-email'), authForm: $('#auth-form'), authEmail: $('#auth-email'),
+  authPassword: $('#auth-password'), authError: $('#auth-error'), authSubmit: $('#auth-submit'),
+  authClose: $('#auth-close'),
 };
 
 const genreNames = {
@@ -17,33 +22,6 @@ const genreNames = {
   Horror: 'Ужасы', Family: 'Семейный', Action: 'Боевик', Mystery: 'Детектив',
   War: 'Военный', History: 'Исторический', Music: 'Музыкальный', Western: 'Вестерн',
 };
-
-// UI demo only. This intentionally does not implement BM25 or imitate an LLM.
-// Replace this client with an HTTP adapter when the backend is ready.
-const themes = [
-  { pattern: /космо|планет|галакт|астронавт|space|planet|galax/i, label: 'космос и другие миры', terms: ['space', 'planet', 'galaxy', 'astronaut', 'interstellar'], ids: [157336, 286217, 49047, 62, 11, 1891, 1892, 118340] },
-  { pattern: /уют|добр|тепл|тёпл|спокойн|отдох|cozy|feel.good/i, label: 'уютный вечер', terms: ['friendship', 'family', 'love', 'life'], ids: [13, 1124, 194, 862, 585, 12, 14160, 106646, 10193] },
-  { pattern: /детектив|развязк|загад|расслед|mystery|detective|twist/i, label: 'загадки и неожиданные развязки', terms: ['murder', 'mystery', 'detective', 'investigation', 'killer'], ids: [807, 77, 629, 146233, 210577, 11321] },
-  { pattern: /фантасти|будущ|science.fiction|sci.fi|future/i, label: 'фантастические истории', terms: ['future', 'science fiction', 'robot', 'artificial intelligence'], genres: ['Science Fiction'] },
-  { pattern: /приключ|путешеств|adventure|journey/i, label: 'приключения', terms: ['journey', 'adventure', 'quest', 'travel'], genres: ['Adventure'] },
-  { pattern: /комеди|смешн|юмор|посме|comedy|funny/i, label: 'лёгкое настроение', terms: ['comedy', 'funny'], genres: ['Comedy'] },
-  { pattern: /любов|романти|мелодрам|romance|romantic/i, label: 'любовные истории', terms: ['love', 'romance', 'romantic'], genres: ['Romance'] },
-  { pattern: /триллер|напряж|thriller|suspense/i, label: 'напряжённый сюжет', terms: ['thriller', 'danger', 'killer'], genres: ['Thriller'] },
-  { pattern: /семь|семей|реб[её]н|деть|мульт|family|animation|kids/i, label: 'семейный просмотр', terms: ['family', 'friendship', 'animation'], genres: ['Family', 'Animation'] },
-  { pattern: /фэнтез|маг|волшеб|fantasy|magic/i, label: 'волшебные миры', terms: ['magic', 'wizard', 'fantasy', 'kingdom'], genres: ['Fantasy'] },
-  { pattern: /ужас|страш|хоррор|horror|scary/i, label: 'страшное кино', terms: ['horror', 'terror', 'monster'], genres: ['Horror'] },
-  { pattern: /драм|трогат|смысл|серь[её]з|drama|touching/i, label: 'истории, которые трогают', terms: ['drama', 'life'], genres: ['Drama'] },
-  { pattern: /кримин|мафи|гангстер|crime|mafia|gangster/i, label: 'криминальные истории', terms: ['crime', 'mafia', 'gangster', 'criminal'], genres: ['Crime'] },
-  { pattern: /войн|военн|war|military/i, label: 'военные истории', terms: ['war', 'soldier', 'military'], genres: ['War'] },
-  { pattern: /супергер|марвел|marvel|superhero/i, label: 'супергерои', terms: ['superhero', 'super power', 'marvel'], ids: [24428, 1726, 155, 177572] },
-  { pattern: /времен|time.travel/i, label: 'путешествия во времени', terms: ['time travel', 'future', 'past'], ids: [105, 157336] },
-];
-
-const normalized = (value) => value.toLowerCase().normalize('NFKC');
-const searchableCatalog = catalog.map((movie) => ({
-  ...movie,
-  searchText: normalized([movie.title, movie.overview, ...movie.genres, ...movie.keywords].join(' ')),
-}));
 
 function element(tag, className, text) {
   const node = document.createElement(tag);
@@ -62,91 +40,87 @@ function icon(name) {
   return svg;
 }
 
-class DemoRecommendationClient {
-  async recommend(request, { signal } = {}) {
-    await new Promise((resolve, reject) => {
-      const timer = setTimeout(resolve, 650);
-      if (signal?.aborted) {
-        clearTimeout(timer);
-        reject(new DOMException('Отменено', 'AbortError'));
-        return;
-      }
-      signal?.addEventListener('abort', () => {
-        clearTimeout(timer);
-        reject(new DOMException('Отменено', 'AbortError'));
-      }, { once: true });
-    });
-    const query = normalized(request.query);
-    const matchedThemes = themes.filter((theme) => theme.pattern.test(query));
-    const terms = [...new Set(query.match(/[\p{L}\p{N}]+/gu) || [])].filter((term) => term.length > 2);
-    const ranked = searchableCatalog
-      .filter((movie) => (
-        (!request.filters.genres.length || request.filters.genres.some((genre) => movie.genres.includes(genre))) &&
-        (request.filters.year_from === null || movie.year >= request.filters.year_from) &&
-        (request.filters.year_to === null || movie.year <= request.filters.year_to) &&
-        (request.filters.min_rating === 0 || (movie.votes > 0 && movie.rating >= request.filters.min_rating))
-      ))
-      .map((movie) => {
-        let score = normalized(movie.title).includes(query) ? 30 : 0;
-        for (const term of terms) {
-          if (normalized(movie.title).includes(term)) score += 6;
-          if (movie.searchText.includes(term)) score += 1;
-        }
-        for (const theme of matchedThemes) {
-          if (theme.ids?.includes(movie.id)) score += 8;
-          if (theme.genres?.some((genre) => movie.genres.includes(genre))) score += 4;
-          score += theme.terms.filter((term) => movie.searchText.includes(term)).length;
-        }
-        return { movie, score };
-      })
-      .filter((hit) => hit.score > 0)
-      .sort((a, b) => b.score - a.score || b.movie.rating - a.movie.rating || a.movie.id - b.movie.id);
-    return {
-      items: ranked.slice(0, request.limit).map(({ movie }) => ({
-        ...movie,
-        reason: this.explain(movie, matchedThemes),
-      })),
-      matchedCount: ranked.length,
-      requestedCount: request.limit,
-    };
-  }
-
-  explain(movie, matchedThemes) {
-    const theme = matchedThemes.find((entry) => entry.ids?.includes(movie.id) ||
-      entry.genres?.some((genre) => movie.genres.includes(genre)) ||
-      entry.terms.some((term) => movie.searchText.includes(term)));
-    const genres = movie.genres.slice(0, 2).map((genre) => genreNames[genre] || genre).join(', ').toLowerCase();
-    return theme
-      ? 'Вариант под настроение «' + theme.label + '». ' + capitalize(genres) + '; подробности сюжета — в описании ниже.'
-      : 'В описании или названии есть совпадения с вашим запросом. ' + capitalize(genres) + ' с рейтингом ' + formatRating(movie.rating) + '.';
-  }
-}
-
-const client = new DemoRecommendationClient();
+const client = new MoviePickerApi();
+let account = null;
+let catalog = null;
+let catalogLoading = null;
+let authBusy = true;
 let pending = null;
 let requestVersion = 0;
 let lastDrawerFocus = null;
 const formatRating = (value) => value.toLocaleString('ru-RU', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
-const capitalize = (value) => value ? value[0].toUpperCase() + value.slice(1) : value;
-
 function readFilters() {
   const form = new FormData(dom.filters);
   return {
-    genres: form.getAll('genres'),
+    genre_ids: form.getAll('genre_ids').map(Number),
     year_from: form.get('year_from') === '' ? null : Number(form.get('year_from')),
     year_to: form.get('year_to') === '' ? null : Number(form.get('year_to')),
-    min_rating: Number(form.get('rating')),
+    min_rating: Number(form.get('rating')) || null,
   };
 }
 
 function filterLabels(filters, count) {
-  const labels = filters.genres.map((genre) => genreNames[genre] || genre);
+  const labels = (catalog?.genres || [])
+    .filter((genre) => filters.genre_ids.includes(genre.id))
+    .map((genre) => genreNames[genre.name] || genre.name);
   if (filters.year_from !== null && filters.year_to !== null) labels.push(filters.year_from + '–' + filters.year_to);
   else if (filters.year_from !== null) labels.push('от ' + filters.year_from + ' года');
   else if (filters.year_to !== null) labels.push('до ' + filters.year_to + ' года');
   if (filters.min_rating) labels.push('рейтинг ' + filters.min_rating + '+');
   if (count !== undefined) labels.push('до ' + count + ' фильмов');
   return labels;
+}
+
+function showCatalog(data) {
+  catalog = data;
+  dom.genres.replaceChildren();
+  if (!data) {
+    dom.genres.append(element('span', 'field-note', account ? 'Загрузка жанров…' : 'Жанры доступны после входа.'));
+    updateFilters();
+    return;
+  }
+  for (const genre of data.genres) {
+    const label = element('label', 'genre-chip');
+    const input = element('input');
+    input.type = 'checkbox';
+    input.name = 'genre_ids';
+    input.value = genre.id;
+    label.append(input, element('span', '', genreNames[genre.name] || genre.name));
+    dom.genres.append(label);
+  }
+  for (const id of ['year-from', 'year-to']) {
+    const field = $('#' + id);
+    field.min = data.year_from ?? 1800;
+    field.max = data.year_to ?? 3000;
+  }
+  dom.count.max = data.max_results || 50;
+  dom.count.defaultValue = data.default_results || 10;
+  dom.count.value = dom.count.defaultValue;
+  updateFilters();
+}
+
+function loadCatalog() {
+  if (catalogLoading) return catalogLoading;
+  const requestingAccount = account;
+  const loading = client.catalog().then((data) => {
+    if (account !== requestingAccount) return false;
+    showCatalog(data);
+    showError('');
+    return true;
+  }).catch((error) => {
+    if (account !== requestingAccount) return false;
+    if (error.status === 401) {
+      sessionExpired();
+    } else {
+      dom.genres.replaceChildren(element('span', 'field-note', 'Каталог недоступен.'));
+      showError(errorText(error, 'Каталог недоступен. Повторите попытку.'));
+    }
+    return false;
+  }).finally(() => {
+    if (catalogLoading === loading) catalogLoading = null;
+  });
+  catalogLoading = loading;
+  return loading;
 }
 
 function updateFilters() {
@@ -169,6 +143,92 @@ function setBusy(busy) {
   dom.query.readOnly = busy;
   dom.query.setAttribute('aria-busy', String(busy));
   dom.send.setAttribute('aria-label', busy ? 'Подбираем фильмы' : 'Подобрать фильмы');
+}
+
+function errorText(error, fallback) {
+  return error instanceof ApiError ? error.message : fallback;
+}
+
+function setAccount(user) {
+  account = user;
+  catalogLoading = null;
+  dom.account.hidden = !user;
+  dom.accountEmail.textContent = user?.email || '';
+  dom.authOpen.hidden = Boolean(user);
+  showCatalog(null);
+}
+
+function showAuthError(message = '') {
+  dom.authError.textContent = message;
+  dom.authError.hidden = !message;
+}
+
+function setAuthBusy(value) {
+  authBusy = value;
+  for (const button of [dom.authOpen, dom.authLogout, dom.authSubmit, dom.authClose]) {
+    button.disabled = value;
+  }
+}
+
+function openAuth(message) {
+  dom.authPassword.value = '';
+  showAuthError(message);
+  if (!dom.auth.open) dom.auth.showModal();
+  dom.authEmail.focus();
+}
+
+function sessionExpired() {
+  setAccount(null);
+  resetConversation({ keepQuery: true, focus: false });
+  openAuth('Сессия истекла. Войдите снова.');
+}
+
+async function authenticate(event) {
+  event.preventDefault();
+  if (authBusy) return;
+  setAuthBusy(true);
+  showAuthError();
+  try {
+    const user = await client.login({ email: dom.authEmail.value.trim(), password: dom.authPassword.value });
+    dom.authForm.reset();
+    dom.auth.close();
+    setAccount(user);
+    loadCatalog();
+  } catch (error) {
+    showAuthError(errorText(error, 'Не удалось связаться с сервером.'));
+  } finally {
+    setAuthBusy(false);
+  }
+}
+
+async function logout() {
+  if (authBusy) return;
+  setAuthBusy(true);
+  showError('');
+  try {
+    await client.logout();
+    setAccount(null);
+    resetConversation({ focus: false });
+  } catch (error) {
+    showError(errorText(error, 'Не удалось выйти. Попробуйте ещё раз.'));
+  } finally {
+    setAuthBusy(false);
+    if (!account) dom.authOpen.focus();
+  }
+}
+
+async function restoreSession() {
+  try {
+    const user = await client.restore();
+    if (user) {
+      setAccount(user);
+      loadCatalog();
+    }
+  } catch (error) {
+    showError(errorText(error, 'Не удалось проверить сессию. Попробуйте войти.'));
+  } finally {
+    setAuthBusy(false);
+  }
 }
 
 function enterConversation() {
@@ -196,18 +256,23 @@ function renderMovie(movie, index) {
   const content = element('div', 'movie-content');
   const top = element('div', 'movie-topline');
   const rating = element('span', 'movie-rating');
-  rating.append(icon('star'), document.createTextNode(formatRating(movie.rating)));
-  top.append(element('h3', '', movie.title), rating);
+  top.append(element('h3', '', movie.title));
+  if (movie.rating != null) {
+    rating.append(icon('star'), document.createTextNode(formatRating(movie.rating)));
+    top.append(rating);
+  }
   const meta = [
     movie.year,
-    movie.genres.map((genre) => genreNames[genre] || genre).join(' / '),
-    movie.runtime ? movie.runtime + ' мин' : null,
+    movie.genres.map((genre) => genreNames[genre.name] || genre.name).join(' / '),
   ].filter(Boolean).join(' · ');
   const details = element('details', 'movie-details');
   const overview = element('p', 'movie-overview', movie.overview);
   overview.lang = 'en';
   details.append(element('summary', '', 'О фильме · описание на английском'), overview);
-  content.append(top, element('p', 'movie-meta', meta), element('p', 'movie-reason', movie.reason), details);
+  content.append(top);
+  if (meta) content.append(element('p', 'movie-meta', meta));
+  if (movie.reason) content.append(element('p', 'movie-reason', movie.reason));
+  if (movie.overview) content.append(details);
   card.append(element('span', 'movie-number', String(index + 1).padStart(2, '0')), content);
   return card;
 }
@@ -215,16 +280,15 @@ function renderMovie(movie, index) {
 function renderResponse(response) {
   const message = assistantMessage();
   if (!response.items.length) {
-    message.append(element('p', 'assistant-text', 'В демоколлекции ничего не нашлось. Попробуйте другую тему, название на английском или немного смягчите фильтры.'));
+    message.append(element('p', 'assistant-text', 'Подходящих фильмов не найдено. Попробуйте уточнить запрос или смягчить фильтры.'));
   } else {
-    message.append(element('p', 'assistant-text', 'Вот что можно посмотреть. Выбрал фильмы по вашему запросу и учёл настройки слева.'));
+    message.append(element('p', 'assistant-text', response.mode === 'generated' ? 'Подборка с объяснениями LLM' : 'Результаты поиска'));
     const list = element('div', 'movie-list');
     response.items.forEach((movie, index) => list.append(renderMovie(movie, index)));
     message.append(list);
-    if (response.items.length < response.requestedCount) {
-      message.append(element('p', 'result-note', 'Подходит ' + response.items.length + ' из запрошенных ' + response.requestedCount + '. В этой демоверсии всего ' + catalog.length + ' фильмов — попробуйте расширить условия.'));
-    }
-    message.append(element('p', 'result-note', 'Можно уточнить запрос или начать новый подбор.'));
+  }
+  for (const warning of response.warnings || []) {
+    if (warning.code !== 'NO_MATCHES') message.append(element('p', 'result-note', warning.message));
   }
   return message;
 }
@@ -243,10 +307,19 @@ function validateRequest() {
 
 async function submitQuery() {
   const query = dom.query.value.trim();
-  if (!query || pending) return;
+  if (!query || pending || authBusy) return;
+  if (!account) {
+    openAuth('Войдите, чтобы получить подборку.');
+    return;
+  }
+  if (!catalog && !(await loadCatalog())) return;
+  if (pending || !account || dom.query.value.trim() !== query) return;
   if (!validateRequest()) return;
   showError('');
-  const request = { query, filters: readFilters(), limit: Number(dom.count.value) };
+  const request = {
+    query, filters: readFilters(), limit: Number(dom.count.value),
+    generate_explanations: dom.useLLM.checked, disable_llm: !dom.useLLM.checked,
+  };
   const version = ++requestVersion;
   const controller = new AbortController();
   pending = controller;
@@ -282,8 +355,11 @@ async function submitQuery() {
     status.textContent = response.items.length ? 'Подбор готов. Фильмов: ' + response.items.length + '.' : 'Фильмы не найдены.';
   } catch (error) {
     if (error.name !== 'AbortError' && version === requestVersion) {
-      loading.replaceChildren(element('p', 'assistant-text', 'Не получилось завершить подбор. Попробуйте отправить запрос ещё раз.'));
-      showError('Произошла ошибка. Ваш запрос сохранён в поле ввода.');
+      if (error.status === 401) sessionExpired();
+      else {
+        loading.remove();
+        showError(errorText(error, 'Не удалось завершить подбор. Попробуйте ещё раз.'));
+      }
     }
   } finally {
     if (version === requestVersion) {
@@ -293,7 +369,7 @@ async function submitQuery() {
   }
 }
 
-function resetConversation() {
+function resetConversation({ keepQuery = false, focus = true } = {}) {
   requestVersion += 1;
   pending?.abort();
   pending = null;
@@ -302,12 +378,14 @@ function resetConversation() {
   dom.conversation.hidden = true;
   dom.welcome.hidden = false;
   dom.suggestions.hidden = false;
-  dom.query.value = '';
-  dom.query.style.height = '';
+  if (!keepQuery) {
+    dom.query.value = '';
+    dom.query.style.height = '';
+  }
   status.textContent = '';
   setBusy(false);
   showError('');
-  dom.query.focus({ preventScroll: true });
+  if (focus) dom.query.focus({ preventScroll: true });
 }
 
 function setDrawer(open) {
@@ -361,9 +439,9 @@ $('#count-minus').addEventListener('click', () => {
   dom.count.value = String(Math.max(1, (Number(dom.count.value) || 10) - 1));
 });
 $('#count-plus').addEventListener('click', () => {
-  dom.count.value = String(Math.min(50, (Number(dom.count.value) || 10) + 1));
+  dom.count.value = String(Math.min(Number(dom.count.max), (Number(dom.count.value) || 10) + 1));
 });
-$('#new-chat').addEventListener('click', resetConversation);
+$('#new-chat').addEventListener('click', () => resetConversation());
 document.querySelectorAll('[data-prompt]').forEach((button) => button.addEventListener('click', () => {
   dom.query.value = button.dataset.prompt;
   dom.query.dispatchEvent(new Event('input'));
@@ -399,6 +477,12 @@ const status = element('div', 'sr-only');
 status.setAttribute('role', 'status');
 status.setAttribute('aria-live', 'polite');
 document.body.append(status);
-$('#about-catalog-count').textContent = String(catalog.length);
+dom.authOpen.addEventListener('click', () => openAuth());
+dom.authLogout.addEventListener('click', logout);
+dom.authForm.addEventListener('submit', authenticate);
+dom.authClose.addEventListener('click', () => dom.auth.close());
+dom.auth.addEventListener('cancel', (event) => { if (authBusy) event.preventDefault(); });
+dom.auth.addEventListener('close', () => { dom.authPassword.value = ''; });
 updateFilters();
 setDrawer(false);
+restoreSession();

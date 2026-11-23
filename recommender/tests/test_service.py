@@ -54,6 +54,22 @@ def test_translation_is_independent_of_explanations(movies, catalog):
     assert result.mode == "retrieval_only" and len(llm.calls) == 1
 
 
+@pytest.mark.parametrize(
+    ("query", "expected_strategy", "expected_sparse"),
+    [("space travel", "hybrid", "space travel"), ("Космос", "transformer", None)],
+)
+def test_disable_llm_skips_translation_and_generation(movies, catalog, query, expected_strategy, expected_sparse):
+    pipeline = FakePipeline(movies)
+    llm = ScriptedLLM([])
+    response = RagService(pipeline, llm, Ready(), catalog).recommend(
+        RecommendRequest(query=query, disable_llm=True, generate_explanations=True, limit=1), Budget.seconds(10)
+    )
+    assert llm.calls == []
+    assert response.mode == "retrieval_only"
+    assert response.strategy_used == pipeline.last_strategy == expected_strategy
+    assert pipeline.last_query.sparse_en == expected_sparse
+
+
 def test_request_can_enable_generation_and_config_controls_candidate_pool(movies, catalog):
     pipeline = FakePipeline(movies)
     large_catalog = catalog.model_copy(update={"movie_count": 100})

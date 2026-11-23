@@ -6,7 +6,7 @@
 
 ## Установка
 
-Нужны Python 3.12 или 3.13 и uv. Все команды ниже выполняются из каталога `rag`. Параметры хранятся в `config.toml`; Python-модели в `config.py` только валидируют файл. Неизвестные ключи отклоняются. Пути к CSV, состоянию и embedded Qdrant разрешаются относительно выбранного TOML-файла.
+Нужны Python 3.12 или 3.13 и uv. Все команды ниже выполняются из каталога `recommender`. Параметры хранятся в `config.toml`; Python-модели в `config.py` только валидируют файл. Неизвестные ключи отклоняются. Пути к CSV, состоянию и embedded Qdrant разрешаются относительно выбранного TOML-файла.
 
 ```powershell
 uv sync --locked --extra embeddings
@@ -17,6 +17,10 @@ uv sync --locked --extra embeddings
 ```dotenv
 LLM_API_KEY=ваш_ключ_OpenRouter
 ```
+
+Для локальных тестов в `config.toml` выбрана [Gemma 4 26B, бесплатный вариант OpenRouter](https://openrouter.ai/google/gemma-4-26b-a4b-it:free). У бесплатной модели есть ограничения по частоте запросов.
+
+Флаг `disable_llm=true` в отдельном запросе выключает перевод и финальный отбор вместе. Английский запрос сохраняет выбранную стратегию, запрос на русском при hybrid обрабатывается семантическим поиском. Режим BM25 без перевода требует английского запроса. Флаг `generate_explanations` по-прежнему управляет только финальным отбором.
 
 Шаблон — `.env.example`. Если `.env` ещё нет, скопируйте шаблон; существующий файл с ключом не перезаписывайте. Для работы с LLM нужны `llm.enabled=true`, `llm.model` и ключ; для русских BM25-запросов — `bm25.query_preparation="llm"`, для финальных объяснений — `search.generate_explanations=true` или флаг запроса. В тетрадке включите «Выбор и объяснения LLM». После изменения ключа или конфига перезапустите RAG; пересборка индекса не требуется.
 
@@ -90,7 +94,7 @@ uv run --locked python scripts/query.py "Фантастика про космо�
 
 Доступны `Recommend`, `GetMovie`, `GetCatalog` и стандартный unary gRPC health `Check`. Потоковый health `Watch` не реализован. Порт без TLS предназначен только для localhost/доверенной внутренней сети, не для публичного доступа.
 
-Ответ содержит `mode`, `strategy_used`, `items` и `warnings`. `items` состоят из `movie` и необязательного `reason`. `GetCatalog` возвращает также `available_strategies` и `default_strategy`. Неизвестные числовые поля protobuf не устанавливаются. Отсутствующее поле `generate_explanations` отличается от явного `false`. HTTP API и история — ответственность будущего Go-бэкенда.
+Ответ содержит `mode`, `strategy_used`, `items` и `warnings`. `items` состоят из `movie` и необязательного `reason`. `GetCatalog` возвращает также `available_strategies` и `default_strategy`. Неизвестные числовые поля protobuf не устанавливаются. Отсутствующее поле `generate_explanations` отличается от явного `false`. HTTP API и история относятся к Go-бэкенду.
 
 ## Слои и зависимости
 

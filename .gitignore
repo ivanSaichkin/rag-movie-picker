@@ -8,11 +8,11 @@ pytest-cache-files-*/
 .env
 .env.*
 !.env.example
-rag/.state/
-rag/.qdrant/
-rag/.state-*/
-rag/.qdrant-*/
-rag/.tools/
+recommender/.state/
+recommender/.qdrant/
+recommender/.state-*/
+recommender/.qdrant-*/
+recommender/.tools/
 .coverage
 htmlcov/
 

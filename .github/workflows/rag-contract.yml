@@ -6,20 +6,20 @@ on:
     paths:
       - "proto/rag/**"
       - "pkg/ragapi/**"
-      - "rag/src/rag/**"
-      - "rag/pyproject.toml"
-      - "rag/uv.lock"
-      - "rag/scripts/generate-proto.ps1"
+      - "recommender/src/rag/**"
+      - "recommender/pyproject.toml"
+      - "recommender/uv.lock"
+      - "recommender/scripts/generate-proto.ps1"
       - ".github/workflows/rag-contract.yml"
   pull_request:
     branches: [main, development]
     paths:
       - "proto/rag/**"
       - "pkg/ragapi/**"
-      - "rag/src/rag/**"
-      - "rag/pyproject.toml"
-      - "rag/uv.lock"
-      - "rag/scripts/generate-proto.ps1"
+      - "recommender/src/rag/**"
+      - "recommender/pyproject.toml"
+      - "recommender/uv.lock"
+      - "recommender/scripts/generate-proto.ps1"
       - ".github/workflows/rag-contract.yml"
   workflow_dispatch:
 
@@ -50,11 +50,11 @@ jobs:
       - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
         with:
           python-version: "3.12"
-          working-directory: rag
+          working-directory: recommender
           enable-cache: true
           cache-dependency-glob: uv.lock
       - name: Install locked Python generators
-        working-directory: rag
+        working-directory: recommender
         run: uv sync --locked --group dev
       - name: Install pinned Go generators
         env:
@@ -67,10 +67,10 @@ jobs:
         env:
           PROTOC_PLUGINS: ${{ runner.temp }}/rag-protoc
         run: |
-          rag/.venv/bin/python -m grpc_tools.protoc \
+          recommender/.venv/bin/python -m grpc_tools.protoc \
             -Iproto \
-            --python_out=rag/src \
-            --grpc_python_out=rag/src \
+            --python_out=recommender/src \
+            --grpc_python_out=recommender/src \
             --plugin=protoc-gen-go="$PROTOC_PLUGINS/protoc-gen-go" \
             --plugin=protoc-gen-go-grpc="$PROTOC_PLUGINS/protoc-gen-go-grpc" \
             --go_out=pkg/ragapi --go_opt=paths=source_relative \
@@ -78,8 +78,8 @@ jobs:
             proto/rag/v1/rag.proto
       - name: Check generated clients are committed and up to date
         run: |
-          git diff --exit-code -- rag/src/rag pkg/ragapi/rag
-          untracked="$(git ls-files --others --exclude-standard -- rag/src/rag pkg/ragapi/rag)"
+          git diff --exit-code -- recommender/src/rag pkg/ragapi/rag
+          untracked="$(git ls-files --others --exclude-standard -- recommender/src/rag pkg/ragapi/rag)"
           if [[ -n "$untracked" ]]; then
             printf 'Untracked generated files:\n%s\n' "$untracked"
             exit 1

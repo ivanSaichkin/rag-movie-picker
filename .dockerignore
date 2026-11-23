@@ -1,8 +1,9 @@
 .git
 .github
 docs
-frontend
-rag
+frontend/catalog.js
+frontend/tests/
+recommender
 contributions
 **/*.md
 backend/bin
