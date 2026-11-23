@@ -200,13 +200,20 @@ func TestAuthRouteRejectsUnknownJSONFields(t *testing.T) {
 	handler := newTestRouter()
 
 	body := strings.NewReader(`{"email":"user@example.com","password":"password","admin":true}`)
-	recorder := testutils.Perform(t, handler, http.MethodPost, "/api/v1/auth/register", body, nil)
+	recorder := testutils.Perform(t, handler, http.MethodPost, "/api/v1/auth/login", body, nil)
 	testutils.RequireStatus(t, recorder, http.StatusUnprocessableEntity)
 
 	envelope := testutils.DecodeJSON[dto.ErrorResponse](t, recorder)
 	if envelope.Error.Code != dto.CodeValidationError {
 		t.Fatalf("code = %q, want %q", envelope.Error.Code, dto.CodeValidationError)
 	}
+}
+
+func TestRegistrationIsDisabledByDefault(t *testing.T) {
+	handler := newTestRouter()
+	body := strings.NewReader(`{"email":"new@example.test","password":"password123"}`)
+	recorder := testutils.Perform(t, handler, http.MethodPost, "/api/v1/auth/register", body, nil)
+	testutils.RequireStatus(t, recorder, http.StatusNotFound)
 }
 
 func TestMeRequiresAuthorization(t *testing.T) {

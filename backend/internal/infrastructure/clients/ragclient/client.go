@@ -68,6 +68,7 @@ func (c *RAGClient) Recommend(ctx context.Context, request models.Recommendation
 		Filters:              filtersToProto(request.Filters),
 		Strategy:             request.Strategy,
 		GenerateExplanations: request.GenerateExplanations,
+		DisableLlm:           request.DisableLLM,
 	}
 	if request.Limit != nil {
 		//nolint:gosec // G115: the limit is validated against the catalog maximum before the call.

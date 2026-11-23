@@ -69,6 +69,7 @@ type RedisConfig struct {
 // Config is the runtime configuration of the API service.
 type Config struct {
 	HTTPAddress            string
+	FrontendDir            string
 	LogLevel               slog.Level
 	DatabaseURL            string
 	PostgresMaxConnections int32
@@ -77,6 +78,7 @@ type Config struct {
 	AccessTokenTTL         time.Duration
 	RefreshTokenTTL        time.Duration
 	CookieSecure           bool
+	RegistrationEnabled    bool
 	Argon2                 Argon2Config
 	RateLimit              RateLimitConfig
 	Redis                  RedisConfig
@@ -143,6 +145,7 @@ func loadHTTP(cfg *Config) error {
 		return fmt.Errorf("HTTP_ADDR: %w", err)
 	}
 
+	cfg.FrontendDir = strings.TrimSpace(os.Getenv("FRONTEND_DIR"))
 	level, err := LoadLogLevel()
 	if err != nil {
 		return err
@@ -223,6 +226,13 @@ func loadAuth(cfg *Config) error {
 			return err
 		}
 		cfg.CookieSecure = secure
+	}
+	if raw, ok := os.LookupEnv("REGISTRATION_ENABLED"); ok {
+		enabled, err := parseBool("REGISTRATION_ENABLED", raw)
+		if err != nil {
+			return err
+		}
+		cfg.RegistrationEnabled = enabled
 	}
 	return nil
 }

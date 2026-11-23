@@ -21,6 +21,7 @@ type RecommendationRequest struct {
 	Filters              RecommendationFilters `json:"filters"`
 	Strategy             *string               `json:"strategy,omitempty"`
 	GenerateExplanations *bool                 `json:"generate_explanations,omitempty"`
+	DisableLLM           bool                  `json:"disable_llm,omitempty"`
 }
 
 // ToModel converts the request to the domain form.
@@ -31,6 +32,7 @@ func (r RecommendationRequest) ToModel() models.RecommendationRequest {
 		Filters:              newFiltersModel(r.Filters),
 		Strategy:             r.Strategy,
 		GenerateExplanations: r.GenerateExplanations,
+		DisableLLM:           r.DisableLLM,
 	}
 }
 

@@ -99,6 +99,7 @@ class RecommendRequest(Model):
     generate_explanations: bool | None = None
     candidate_limit: int | None = Field(default=None, ge=1)
     include_diagnostics: bool = False
+    disable_llm: bool = False
 
 
 class SparseVector(Model):

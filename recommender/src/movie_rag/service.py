@@ -76,17 +76,22 @@ class RagService:
         if diagnostics is not None:
             diagnostics.timings_ms["readiness"] = (time.perf_counter() - started) * 1000
         budget.remaining()
-        prepared = self._prepare_query(request.query, strategy, budget, diagnostics)
+        prepared = self._prepare_query(request.query, strategy, budget, diagnostics, disable_llm=request.disable_llm)
         pool_limit = request.candidate_limit or max(self.search.min_candidates, self.search.candidate_multiplier * request.limit)
         pool_limit = min(self.catalog.movie_count, self.search.max_candidates, pool_limit)
         if diagnostics is not None:
             diagnostics.requested_candidate_limit = pool_limit
         started = time.perf_counter()
-        result = self.retrieval.search(prepared, request.filters, pool_limit, strategy, budget)
+        skip_bm25 = request.disable_llm and strategy == "hybrid" and prepared.sparse_en is None
+        result = self.retrieval.search(prepared, request.filters, pool_limit, "transformer" if skip_bm25 else strategy, budget)
         if diagnostics is not None:
             diagnostics.timings_ms["retrieval"] = (time.perf_counter() - started) * 1000
             diagnostics.candidates = [DiagnosticCandidate(movie=hit.movie, score=hit.score) for hit in result.hits]
         warnings = result.warnings[:]
+        if skip_bm25:
+            warnings.append(
+                Warning(code="BM25_REQUIRES_ENGLISH", message="Без LLM русский запрос обрабатывает семантический поиск.")
+            )
         if not result.hits:
             return RecommendResponse(
                 mode="empty",
@@ -94,7 +99,7 @@ class RagService:
                 warnings=[*warnings, Warning(code="NO_MATCHES", message="Подходящие фильмы не найдены.")],
             )
         generate = self.search.generate_explanations if request.generate_explanations is None else request.generate_explanations
-        if not generate or not self.generation.enabled:
+        if request.disable_llm or not generate or not self.generation.enabled:
             items = [Recommendation(movie=hit.movie) for hit in result.hits[: request.limit]]
             if len(items) < request.limit:
                 warnings.append(Warning(code="FEWER_RESULTS", message="Найдено меньше фильмов, чем запрошено."))
@@ -113,12 +118,14 @@ class RagService:
             raise ServiceError("INVALID_ARGUMENT", "candidate_limit must be between limit and max_candidates")
 
     def _prepare_query(
-        self, query: str, strategy: Strategy, budget: Budget, diagnostics: RequestDiagnostics | None
+        self, query: str, strategy: Strategy, budget: Budget, diagnostics: RequestDiagnostics | None, *, disable_llm: bool
     ) -> PreparedQuery:
         if strategy == "transformer":
             return PreparedQuery(query, None)
-        if self.bm25.query_preparation == "none":
+        if disable_llm or self.bm25.query_preparation == "none":
             if not query.isascii() or not re.search(r"[a-zA-Z]", query):
+                if disable_llm and strategy == "hybrid":
+                    return PreparedQuery(query, None)
                 raise ServiceError("INVALID_ARGUMENT", "BM25 without translation requires an English ASCII query")
             return PreparedQuery(query, query)
         english = None

@@ -5,12 +5,16 @@ on:
     branches: [main, development, "back_*"]
     paths:
       - "backend/**"
+      - "frontend/**"
+      - ".dockerignore"
       - "pkg/ragapi/**"
       - ".github/workflows/backend-ci.yml"
   pull_request:
     branches: [main, development]
     paths:
       - "backend/**"
+      - "frontend/**"
+      - ".dockerignore"
       - "pkg/ragapi/**"
       - ".github/workflows/backend-ci.yml"
   workflow_dispatch:

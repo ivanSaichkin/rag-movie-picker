@@ -12,6 +12,8 @@
 | `POST /api/v1/auth/register` | `register` | час | 20 | `RATE_LIMIT_REGISTER_PER_HOUR` |
 | `POST /api/v1/auth/refresh` | `refresh` | минута | 60 | `RATE_LIMIT_REFRESH_PER_MINUTE` |
 
+Лимит регистрации применяется только при `REGISTRATION_ENABLED=true`. По умолчанию маршрут регистрации отключён.
+
 Значения — целые от 1 до 100000. Остальные ручки (`logout`, `me`, каталог, карточки, подбор, история, личные списки, `/health`, `/ready`) лимитером не ограничены.
 
 ## 2. Алгоритм
