@@ -16,6 +16,7 @@ type RecommendationFilters struct {
 
 // RecommendationRequest is the body of POST /recommendations.
 type RecommendationRequest struct {
+	ChatID               *uuid.UUID            `json:"chat_id,omitempty"`
 	Query                string                `json:"query"`
 	Limit                *int                  `json:"limit,omitempty"`
 	Filters              RecommendationFilters `json:"filters"`
@@ -27,6 +28,7 @@ type RecommendationRequest struct {
 // ToModel converts the request to the domain form.
 func (r RecommendationRequest) ToModel() models.RecommendationRequest {
 	return models.RecommendationRequest{
+		ChatID:               r.ChatID,
 		Query:                r.Query,
 		Limit:                r.Limit,
 		Filters:              newFiltersModel(r.Filters),
@@ -59,6 +61,7 @@ type StoredRecommendation struct {
 // RecommendationResponse is the answer of POST /recommendations. The history
 // identifier is null when the snapshot could not be stored.
 type RecommendationResponse struct {
+	ChatID    *uuid.UUID `json:"chat_id,omitempty"`
 	HistoryID *uuid.UUID `json:"history_id"`
 	StoredRecommendation
 }
@@ -66,6 +69,7 @@ type RecommendationResponse struct {
 // NewRecommendationResponse converts the service result to the API contract.
 func NewRecommendationResponse(result models.RecommendationResult) RecommendationResponse {
 	return RecommendationResponse{
+		ChatID:               result.ChatID,
 		HistoryID:            result.HistoryID,
 		StoredRecommendation: newStoredRecommendation(result.Response),
 	}

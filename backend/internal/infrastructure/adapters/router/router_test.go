@@ -12,6 +12,7 @@ import (
 
 	"github.com/ivanSaichkin/rag-movie-picker/backend/internal/domain/models"
 	"github.com/ivanSaichkin/rag-movie-picker/backend/internal/domain/rules"
+	"github.com/ivanSaichkin/rag-movie-picker/backend/internal/infrastructure/adapters/cache"
 	"github.com/ivanSaichkin/rag-movie-picker/backend/internal/infrastructure/adapters/router"
 	"github.com/ivanSaichkin/rag-movie-picker/backend/internal/interfaces/http/dto"
 	"github.com/ivanSaichkin/rag-movie-picker/backend/internal/interfaces/http/handlers"
@@ -70,6 +71,10 @@ func (s stubCatalogService) Movie(context.Context, int64) (models.MovieCard, err
 }
 
 type stubRecommendationService struct{}
+
+func (stubRecommendationService) RecommendGuest(context.Context, models.RecommendationRequest) (models.RecommendationResult, error) {
+	return models.RecommendationResult{Response: models.Recommendation{Mode: "retrieval_only"}}, nil
+}
 
 func (stubRecommendationService) Recommend(context.Context, uuid.UUID, models.RecommendationRequest) (models.RecommendationResult, error) {
 	return models.RecommendationResult{Response: models.Recommendation{
@@ -299,6 +304,45 @@ func TestRecommendationRouteRequiresAuthorization(t *testing.T) {
 
 	recorder := testutils.Perform(t, handler, http.MethodPost, "/api/v1/recommendations", strings.NewReader(`{"query":"космос"}`), nil)
 	testutils.RequireStatus(t, recorder, http.StatusUnauthorized)
+}
+
+func TestGuestRoutesWithoutAuthorization(t *testing.T) {
+	handler := newTestRouter()
+	catalog := testutils.Perform(t, handler, http.MethodGet, "/api/v1/guest/catalog", nil, nil)
+	testutils.RequireStatus(t, catalog, http.StatusOK)
+	if testutils.DecodeJSON[dto.CatalogResponse](t, catalog).MovieCount != 4803 {
+		t.Fatal("guest catalog missing movie count")
+	}
+	request := strings.NewReader(`{"query":"space","disable_llm":false,"generate_explanations":true}`)
+	recorder := testutils.Perform(t, handler, http.MethodPost, "/api/v1/guest/recommendations", request, nil)
+	testutils.RequireStatus(t, recorder, http.StatusOK)
+	body := testutils.DecodeJSON[dto.RecommendationResponse](t, recorder)
+	if body.Mode != "retrieval_only" || body.HistoryID != nil {
+		t.Fatalf("guest response = %+v", body)
+	}
+}
+
+func TestGuestSearchRateLimit(t *testing.T) {
+	handler := router.New(router.Params{
+		Logger:         slog.New(slog.NewJSONHandler(io.Discard, nil)),
+		Auth:           handlers.NewAuthHandler(stubAuthService{}, false),
+		Health:         handlers.NewHealthHandler(),
+		Recommendation: handlers.NewRecommendationHandler(stubRecommendationService{}),
+		Limiters: router.Limiters{
+			Guest: middleware.GuestSearchRateLimit(cache.NewInMemoryCache(), 1),
+		},
+	})
+	for _, status := range []int{http.StatusOK, http.StatusTooManyRequests} {
+		header := http.Header{}
+		if status == http.StatusTooManyRequests {
+			header.Set("X-Forwarded-For", "192.0.2.72")
+		}
+		response := testutils.Perform(t, handler, http.MethodPost, "/api/v1/guest/recommendations", strings.NewReader(`{"query":"space"}`), header)
+		testutils.RequireStatus(t, response, status)
+		if status == http.StatusTooManyRequests && response.Header().Get("Retry-After") == "" {
+			t.Fatal("missing Retry-After for guest search")
+		}
+	}
 }
 
 func TestRecommendationRouteReturnsResult(t *testing.T) {

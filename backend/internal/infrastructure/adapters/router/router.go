@@ -20,6 +20,7 @@ type Limiters struct {
 	Login    gin.HandlerFunc
 	Register gin.HandlerFunc
 	Refresh  gin.HandlerFunc
+	Guest    gin.HandlerFunc
 }
 
 // Params describes the handlers and middleware registered by the router.
@@ -29,6 +30,7 @@ type Params struct {
 	Auth                *handlers.AuthHandler
 	Catalog             *handlers.CatalogHandler
 	Recommendation      *handlers.RecommendationHandler
+	Chats               *handlers.ChatHandler
 	History             *handlers.HistoryHandler
 	UserMovies          *handlers.UserMovieHandler
 	Authenticate        gin.HandlerFunc
@@ -88,11 +90,18 @@ func New(params Params) *gin.Engine {
 	auth.GET("/me", with(params.Authenticate, params.Auth.CurrentUser)...)
 
 	if params.Catalog != nil {
+		v1.GET("/guest/catalog", params.Catalog.Catalog)
 		v1.GET("/catalog", with(params.Authenticate, params.Catalog.Catalog)...)
 		v1.GET("/movies/:movie_id", with(params.Authenticate, params.Catalog.Movie)...)
 	}
 	if params.Recommendation != nil {
+		v1.POST("/guest/recommendations", with(params.Limiters.Guest, params.Recommendation.RecommendGuest)...)
 		v1.POST("/recommendations", with(params.Authenticate, params.Recommendation.Recommend)...)
+	}
+	if params.Chats != nil {
+		v1.GET("/chats", with(params.Authenticate, params.Chats.List)...)
+		v1.GET("/chats/:id", with(params.Authenticate, params.Chats.Get)...)
+		v1.DELETE("/chats/:id", with(params.Authenticate, params.Chats.Delete)...)
 	}
 	if params.History != nil {
 		v1.GET("/history", with(params.Authenticate, params.History.List)...)

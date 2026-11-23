@@ -2,9 +2,11 @@ package postgres
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/ivanSaichkin/rag-movie-picker/backend/internal/domain/models"
@@ -33,13 +35,24 @@ func (r *History) Create(ctx context.Context, entry models.HistoryEntry) (models
 		return models.HistoryEntry{}, err
 	}
 
-	const query = `
-		INSERT INTO search_history (user_id, query, filters, requested_limit, response)
-		VALUES ($1, $2, $3, $4, $5)
-		RETURNING id, created_at`
-
-	err = r.pool.QueryRow(ctx, query, entry.UserID, entry.Query, filters, entry.RequestedLimit, response).
-		Scan(&entry.ID, &entry.CreatedAt)
+	// The chat and first snapshot commit together. A lock on an existing
+	// chat serializes concurrent appends and deletion.
+	chatQuery := `INSERT INTO chats (user_id) VALUES ($1) RETURNING id`
+	args := []any{entry.UserID}
+	if entry.ChatID != nil {
+		chatQuery = `SELECT id FROM chats WHERE user_id=$1 AND id=$2 FOR UPDATE`
+		args = append(args, *entry.ChatID)
+	}
+	err = pgx.BeginFunc(ctx, r.pool, func(tx pgx.Tx) error {
+		var chatID uuid.UUID
+		if err := tx.QueryRow(ctx, chatQuery, args...).Scan(&chatID); err != nil {
+			return wrapQueryError("resolve chat", err)
+		}
+		entry.ChatID = &chatID
+		const insert = `INSERT INTO search_history (chat_id,user_id,query,filters,requested_limit,response,created_at)
+ VALUES ($1,$2,$3,$4,$5,$6,clock_timestamp()) RETURNING id,created_at`
+		return tx.QueryRow(ctx, insert, chatID, entry.UserID, entry.Query, filters, entry.RequestedLimit, response).Scan(&entry.ID, &entry.CreatedAt)
+	})
 	if err != nil {
 		return models.HistoryEntry{}, fmt.Errorf("create history entry: %w", err)
 	}
@@ -95,12 +108,16 @@ func (r *History) Get(ctx context.Context, userID, historyID uuid.UUID) (models.
 		FROM search_history
 		WHERE id = $1 AND user_id = $2`
 
+	return scanEntry(r.pool.QueryRow(ctx, query, historyID, userID))
+}
+
+func scanEntry(row pgx.Row) (models.HistoryEntry, error) {
 	var (
 		entry       models.HistoryEntry
 		rawFilters  []byte
 		rawResponse []byte
 	)
-	err := r.pool.QueryRow(ctx, query, historyID, userID).Scan(
+	err := row.Scan(
 		&entry.ID,
 		&entry.UserID,
 		&entry.Query,
@@ -128,13 +145,35 @@ func (r *History) Get(ctx context.Context, userID, historyID uuid.UUID) (models.
 
 // Delete removes the user's snapshot. It reports whether a row was deleted.
 func (r *History) Delete(ctx context.Context, userID, historyID uuid.UUID) (bool, error) {
-	const query = `DELETE FROM search_history WHERE id = $1 AND user_id = $2`
-
-	tag, err := r.pool.Exec(ctx, query, historyID, userID)
+	var deleted bool
+	err := pgx.BeginFunc(ctx, r.pool, func(tx pgx.Tx) error {
+		const find = `
+            SELECT c.id FROM chats c
+            JOIN search_history h ON h.chat_id = c.id AND h.user_id = c.user_id
+            WHERE h.id = $1 AND h.user_id = $2 FOR UPDATE OF c`
+		var chatID uuid.UUID
+		err := tx.QueryRow(ctx, find, historyID, userID).Scan(&chatID)
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil
+		}
+		if err != nil {
+			return err
+		}
+		tag, err := tx.Exec(ctx, `DELETE FROM search_history WHERE id=$1 AND user_id=$2`, historyID, userID)
+		if err != nil {
+			return err
+		}
+		deleted = tag.RowsAffected() > 0
+		_, err = tx.Exec(ctx, `
+            DELETE FROM chats WHERE id = $1 AND user_id = $2 AND NOT EXISTS (
+                SELECT 1 FROM search_history WHERE chat_id = $1 AND user_id = $2
+            )`, chatID, userID)
+		return err
+	})
 	if err != nil {
 		return false, fmt.Errorf("delete history entry: %w", err)
 	}
-	return tag.RowsAffected() > 0, nil
+	return deleted, nil
 }
 
 var _ ports.HistoryRepository = (*History)(nil)

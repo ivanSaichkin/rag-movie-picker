@@ -8,6 +8,7 @@ const WarningHistoryNotSaved = "HISTORY_NOT_SAVED"
 
 // RecommendationRequest is the validated request passed to the RAG service.
 type RecommendationRequest struct {
+	ChatID               *uuid.UUID
 	Query                string
 	Limit                *int
 	Filters              Filters
@@ -40,6 +41,7 @@ type Recommendation struct {
 // RecommendationResult is the recommendation plus the history identifier when
 // the snapshot was stored.
 type RecommendationResult struct {
+	ChatID    *uuid.UUID
 	HistoryID *uuid.UUID
 	Response  Recommendation
 }

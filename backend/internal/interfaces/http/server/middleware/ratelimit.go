@@ -15,10 +15,19 @@ import (
 // IP. A failure of the cache is fail-open: availability of authentication is
 // more important than the limit itself.
 func RateLimit(store ports.Cache, prefix string, limit int64, window time.Duration) gin.HandlerFunc {
+	return rateLimit(store, prefix, limit, window, (*gin.Context).ClientIP)
+}
+
+// GuestSearchRateLimit uses the socket peer because the server has no trusted proxy configuration.
+func GuestSearchRateLimit(store ports.Cache, limit int64) gin.HandlerFunc {
+	return rateLimit(store, "guest", limit, time.Minute, (*gin.Context).RemoteIP)
+}
+
+func rateLimit(store ports.Cache, prefix string, limit int64, window time.Duration, clientIP func(*gin.Context) string) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		now := time.Now()
 		windowStart := now.Truncate(window)
-		key := fmt.Sprintf("ratelimit:%s:%s:%d", prefix, c.ClientIP(), windowStart.Unix())
+		key := fmt.Sprintf("ratelimit:%s:%s:%d", prefix, clientIP(c), windowStart.Unix())
 
 		count, err := store.Increment(c.Request.Context(), key, window)
 		if err != nil {

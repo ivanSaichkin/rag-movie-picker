@@ -6,7 +6,7 @@
 
 > Требования и целевая архитектура MVP, а не описание уже реализованных возможностей. Два сервиса: Go-бэкенд и Python RAG; взаимодействие — по gRPC.
 
-Команды запуска Python-сервиса и Go API описаны в [recommender/README.md](recommender/README.md) и [backend/README.md](backend/README.md). Сайт поддерживает вход по выданным аккаунтам, фильтры по каталогу и подбор через Go API. История сохраняется на сервере.
+Команды запуска Python-сервиса и Go API описаны в [recommender/README.md](recommender/README.md) и [backend/README.md](backend/README.md). Гость может искать фильмы по каталогу без LLM. После входа доступны пояснения LLM, личные списки и сохранённые чаты.
 
 ## Локальный запуск
 
@@ -55,7 +55,7 @@ docker compose up -d --build
 
 Карточка содержит название, год, жанры, рейтинг, исходное описание и необязательное объяснение рекомендации. По умолчанию запрашиваются 10 фильмов, максимум `search.max_results` первоначально равен 50. При недостатке подходящих фильмов возвращается меньше результатов с предупреждением.
 
-В MVP история и оценки сохраняются, но **не влияют на подбор автоматически**. Нет отзывов, загрузки файлов через сайт, диалога с памятью, стриминга и социальных функций. Подбор и личные данные доступны после входа.
+В MVP история и оценки сохраняются, но **не влияют на подбор автоматически**. Нет отзывов, загрузки файлов через сайт, диалога с памятью, стриминга и социальных функций. Гостевой подбор использует только поиск. Каждый запрос в сохранённом чате может задавать отдельную тему.
 
 ## 2. Архитектура
 
@@ -127,7 +127,8 @@ HTTP-обработчики не содержат SQL и бизнес-логик
 | --- | --- |
 | `users` | `id, email, password_hash, created_at`; уникальный нормализованный email |
 | `refresh_tokens` | `id, user_id, token_hash, family_id, expires_at, revoked_at, created_at` |
-| `search_history` | `id, user_id, query, filters, requested_limit, response, created_at` |
+| `chats` | `id, user_id` |
+| `search_history` | `id, chat_id, user_id, query, filters, requested_limit, response, created_at` |
 | `user_movies` | `user_id, movie_id, status, liked, movie_snapshot, updated_at`; уникальная пара пользователя и фильма |
 
 `filters`, `response` и `movie_snapshot` — JSONB с проверкой структуры в приложении. История хранит полный снимок результата, включая объяснения и предупреждения; открытие истории не вызывает RAG повторно. Успешные пустые ответы и fallback сохраняются, ошибки сервиса — нет.
@@ -242,7 +243,7 @@ Manifest версии 2 содержит состав векторов, пара
 
 ## 7. HTTP API
 
-Префикс — `/api/v1`. Кроме регистрации, входа и refresh, перечисленные API требуют access-токен.
+Префикс — `/api/v1`. Гостевые маршруты доступны без токена. Для личных данных и подбора с сохранением чата нужен access-токен.
 
 | Метод и путь | Назначение |
 | --- | --- |
@@ -251,9 +252,14 @@ Manifest версии 2 содержит состав векторов, пара
 | `POST /auth/refresh` | Ротация refresh-токена |
 | `POST /auth/logout` | Отзыв refresh-токена и удаление cookie |
 | `GET /auth/me` | Текущий пользователь |
+| `GET /guest/catalog` | Каталог фильтров для гостя |
+| `POST /guest/recommendations` | Поиск без LLM и записи в историю |
 | `GET /catalog` | Каталог фильтров и лимиты |
 | `GET /movies/{movie_id}` | Карточка фильма |
 | `POST /recommendations` | Подбор с сохранением истории |
+| `GET /chats` | Чаты текущего пользователя |
+| `GET /chats/{id}` | Запросы и ответы чата по порядку |
+| `DELETE /chats/{id}` | Удаление чата и его запросов |
 | `GET /history` | История с пагинацией |
 | `GET /history/{id}` | Сохранённый запрос и ответ |
 | `DELETE /history/{id}` | Удаление записи |
@@ -340,6 +346,6 @@ Go предоставляет `/health` и `/ready` (процесс / PostgreSQL
 
 ## 10. Go-бэкенд (backend/)
 
-Сервис расположен в каталоге `backend/`. Реализованы HTTP-каркас, слой PostgreSQL и авторизация по JWT: конфигурация из окружения, структурные JSON-логи, `request_id`, единый конверт ошибок, `/health` и `/ready` (проверяет подключение к БД и применённую версию миграций), graceful shutdown, миграции `users`, `refresh_tokens`, `search_history`, `user_movies`, репозитории аккаунтов и refresh-токенов, Argon2id, `/api/v1/auth/register|login|refresh|logout|me`, ротация refresh-токенов, ограничение частоты через Redis или память, gRPC-клиент RAG с дедлайном и `request_id`, кеш каталога на 5 минут, `GET /catalog`, `GET /movies/{movie_id}`, `POST /recommendations` со снимком в `search_history`, `GET/DELETE /history` и `GET/PUT/DELETE /my/movies` со снимком карточки. Фронтенд к API ещё не подключён.
+Сервис расположен в каталоге `backend/`. Реализованы HTTP-каркас, слой PostgreSQL и авторизация по JWT: конфигурация из окружения, структурные JSON-логи, `request_id`, единый конверт ошибок, `/health` и `/ready` (проверяет подключение к БД и применённую версию миграций), graceful shutdown, миграции `users`, `refresh_tokens`, `search_history`, `user_movies`, репозитории аккаунтов и refresh-токенов, Argon2id, `/api/v1/auth/register|login|refresh|logout|me`, ротация refresh-токенов, ограничение частоты через Redis или память, gRPC-клиент RAG с дедлайном и `request_id`, кеш каталога на 5 минут, `GET /catalog`, `GET /movies/{movie_id}`, `POST /recommendations` со снимком в `search_history`, `GET/DELETE /history` и `GET/PUT/DELETE /my/movies` со снимком карточки. Фронтенд использует гостевой поиск и открывает сохранённые подборки владельца через API чатов.
 
 Команды запуска, Docker Compose, структура каталогов и локальные проверки (включая e2e) описаны в [backend/README.md](backend/README.md). `/ready` возвращает 503, если база недоступна, миграции не применены или схема помечена как dirty. Redis необязателен: без `REDIS_ADDR` лимиты считаются в памяти, при недоступном Redis сервис откатывается на память с предупреждением в логе. Локально нужен `golangci-lint` версии 2.15 или новее, собранный с Go 1.26+: более старые сборки отказываются работать с `go 1.26.0` в `go.mod`.

@@ -10,8 +10,8 @@ func TestLatestVersion(t *testing.T) {
 	if err != nil {
 		t.Fatalf("LatestVersion() error = %v", err)
 	}
-	if version != 1 {
-		t.Fatalf("LatestVersion() = %d, want 1", version)
+	if version != 2 {
+		t.Fatalf("LatestVersion() = %d, want 2", version)
 	}
 }
 

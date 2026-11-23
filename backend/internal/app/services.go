@@ -27,6 +27,7 @@ type services struct {
 	authenticationService ports.AuthenticationService
 	catalogService        ports.CatalogService
 	recommendationService ports.RecommendationService
+	chatRepository        ports.ChatRepository
 	historyService        ports.HistoryService
 	userMovieService      ports.UserMovieService
 	tokenIssuer           ports.AccessTokenIssuer
@@ -67,6 +68,7 @@ func newServices(infra *infrastructure, cfg config.Config, logger *slog.Logger) 
 		authenticationService: authenticationService,
 		catalogService:        catalogService,
 		recommendationService: recommendation.NewService(catalogService, ragClient, historyRepository, logger),
+		chatRepository:        historyRepository,
 		historyService:        history.NewService(historyRepository),
 		userMovieService:      usermovies.NewService(userMovieRepository, ragClient),
 		tokenIssuer:           tokenIssuer,

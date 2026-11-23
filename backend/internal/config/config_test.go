@@ -63,7 +63,7 @@ func TestLoadDefaults(t *testing.T) {
 	if cfg.Argon2.Iterations != 3 || cfg.Argon2.MemoryMiB != 64 || cfg.Argon2.Parallelism != 2 {
 		t.Fatalf("Argon2 defaults = %+v", cfg.Argon2)
 	}
-	if cfg.RateLimit.AuthPerMinute != 10 || cfg.RateLimit.RegisterPerHour != 20 || cfg.RateLimit.RefreshPerMinute != 60 {
+	if cfg.RateLimit.AuthPerMinute != 10 || cfg.RateLimit.RegisterPerHour != 20 || cfg.RateLimit.RefreshPerMinute != 60 || cfg.RateLimit.GuestSearchLimit() != 10 {
 		t.Fatalf("RateLimit defaults = %+v", cfg.RateLimit)
 	}
 	if cfg.Redis.Address != "" || cfg.Redis.Database != 0 || cfg.Redis.Timeout != time.Second {
@@ -120,6 +120,7 @@ func TestLoadOverrides(t *testing.T) {
 	t.Setenv("RATE_LIMIT_AUTH_PER_MINUTE", "3")
 	t.Setenv("RATE_LIMIT_REGISTER_PER_HOUR", "4")
 	t.Setenv("RATE_LIMIT_REFRESH_PER_MINUTE", "5")
+	t.Setenv("RATE_LIMIT_GUEST_PER_MINUTE", "6")
 	t.Setenv("REDIS_ADDR", "127.0.0.1:6379")
 	t.Setenv("REDIS_PASSWORD", "secret")
 	t.Setenv("REDIS_DB", "2")
@@ -150,7 +151,7 @@ func TestLoadOverrides(t *testing.T) {
 	if cfg.Argon2 != (config.Argon2Config{Iterations: 5, MemoryMiB: 128, Parallelism: 4}) {
 		t.Fatalf("Argon2 = %+v", cfg.Argon2)
 	}
-	if cfg.RateLimit != (config.RateLimitConfig{AuthPerMinute: 3, RegisterPerHour: 4, RefreshPerMinute: 5}) {
+	if cfg.RateLimit != (config.RateLimitConfig{AuthPerMinute: 3, RegisterPerHour: 4, RefreshPerMinute: 5, GuestPerMinute: 6}) {
 		t.Fatalf("RateLimit = %+v", cfg.RateLimit)
 	}
 	if cfg.Redis != (config.RedisConfig{Address: "127.0.0.1:6379", Password: "secret", Database: 2, Timeout: 5 * time.Second}) {
@@ -275,7 +276,7 @@ func TestLoadInvalidArgon2(t *testing.T) {
 }
 
 func TestLoadInvalidRateLimits(t *testing.T) {
-	for _, key := range []string{"RATE_LIMIT_AUTH_PER_MINUTE", "RATE_LIMIT_REGISTER_PER_HOUR", "RATE_LIMIT_REFRESH_PER_MINUTE"} {
+	for _, key := range []string{"RATE_LIMIT_AUTH_PER_MINUTE", "RATE_LIMIT_REGISTER_PER_HOUR", "RATE_LIMIT_REFRESH_PER_MINUTE", "RATE_LIMIT_GUEST_PER_MINUTE"} {
 		t.Run(key, func(t *testing.T) {
 			t.Setenv(key, "0")
 			setRequired(t)

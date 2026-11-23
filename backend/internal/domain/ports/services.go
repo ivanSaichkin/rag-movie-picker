@@ -47,6 +47,7 @@ type Cache interface {
 // result snapshot in the history.
 type RecommendationService interface {
 	Recommend(ctx context.Context, userID uuid.UUID, request models.RecommendationRequest) (models.RecommendationResult, error)
+	RecommendGuest(ctx context.Context, request models.RecommendationRequest) (models.RecommendationResult, error)
 }
 
 // HistoryService serves the stored search history of one user.

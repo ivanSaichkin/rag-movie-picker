@@ -28,6 +28,7 @@ const (
 	defaultRateLimitAuthPerMinute    = 10
 	defaultRateLimitRegisterPerHour  = 20
 	defaultRateLimitRefreshPerMinute = 60
+	defaultRateLimitGuestPerMinute   = 10
 	defaultRAGGRPCAddress            = "127.0.0.1:50051"
 	defaultRAGTimeout                = 30 * time.Second
 	minJWTSecretLength               = 32
@@ -50,11 +51,20 @@ type Argon2Config struct {
 	Parallelism uint8
 }
 
-// RateLimitConfig holds the per-window request limits for authentication.
+// RateLimitConfig holds per-window request limits for public routes.
 type RateLimitConfig struct {
 	AuthPerMinute    int64
 	RegisterPerHour  int64
 	RefreshPerMinute int64
+	GuestPerMinute   int64
+}
+
+// GuestSearchLimit also supplies the default for programmatically built configs.
+func (c RateLimitConfig) GuestSearchLimit() int64 {
+	if c.GuestPerMinute == 0 {
+		return defaultRateLimitGuestPerMinute
+	}
+	return c.GuestPerMinute
 }
 
 // RedisConfig describes the optional Redis connection. An empty address means
@@ -106,6 +116,7 @@ func Load() (Config, error) {
 			AuthPerMinute:    defaultRateLimitAuthPerMinute,
 			RegisterPerHour:  defaultRateLimitRegisterPerHour,
 			RefreshPerMinute: defaultRateLimitRefreshPerMinute,
+			GuestPerMinute:   defaultRateLimitGuestPerMinute,
 		},
 		Redis:          RedisConfig{Database: redisDefaultDB, Timeout: defaultRedisTimeout},
 		RAGGRPCAddress: defaultRAGGRPCAddress,
@@ -273,6 +284,7 @@ func loadRateLimit(cfg *Config) error {
 		{"RATE_LIMIT_AUTH_PER_MINUTE", &cfg.RateLimit.AuthPerMinute},
 		{"RATE_LIMIT_REGISTER_PER_HOUR", &cfg.RateLimit.RegisterPerHour},
 		{"RATE_LIMIT_REFRESH_PER_MINUTE", &cfg.RateLimit.RefreshPerMinute},
+		{"RATE_LIMIT_GUEST_PER_MINUTE", &cfg.RateLimit.GuestPerMinute},
 	}
 	for _, limit := range limits {
 		raw, ok := os.LookupEnv(limit.key)

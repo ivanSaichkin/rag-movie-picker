@@ -35,9 +35,23 @@ func (h *RecommendationHandler) Recommend(c *gin.Context) {
 
 	result, err := h.service.Recommend(c.Request.Context(), userID, request.ToModel())
 	if err != nil {
-		respondServiceError(c, err, "recommend", "Запись истории не найдена.")
+		respondServiceError(c, err, "recommend", "Чат не найден.")
 		return
 	}
 
+	c.JSON(http.StatusOK, dto.NewRecommendationResponse(result))
+}
+
+// RecommendGuest searches the catalog without creating a personal history entry.
+func (h *RecommendationHandler) RecommendGuest(c *gin.Context) {
+	var request dto.RecommendationRequest
+	if !bindJSON(c, &request) {
+		return
+	}
+	result, err := h.service.RecommendGuest(c.Request.Context(), request.ToModel())
+	if err != nil {
+		respondServiceError(c, err, "guest_recommend", "Фильм не найден.")
+		return
+	}
 	c.JSON(http.StatusOK, dto.NewRecommendationResponse(result))
 }

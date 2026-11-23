@@ -26,6 +26,7 @@ func newHTTPServer(cfg config.Config, logger *slog.Logger, infra *infrastructure
 		Auth:                authHandler,
 		Catalog:             catalogHandler,
 		Recommendation:      recommendationHandler,
+		Chats:               handlers.NewChatHandler(appServices.chatRepository),
 		History:             historyHandler,
 		UserMovies:          userMovieHandler,
 		Authenticate:        middleware.Authenticate(appServices.tokenIssuer),
@@ -36,6 +37,7 @@ func newHTTPServer(cfg config.Config, logger *slog.Logger, infra *infrastructure
 			Login:    middleware.RateLimit(infra.cache, "login", cfg.RateLimit.AuthPerMinute, time.Minute),
 			Register: middleware.RateLimit(infra.cache, "register", cfg.RateLimit.RegisterPerHour, time.Hour),
 			Refresh:  middleware.RateLimit(infra.cache, "refresh", cfg.RateLimit.RefreshPerMinute, time.Minute),
+			Guest:    middleware.GuestSearchRateLimit(infra.cache, cfg.RateLimit.GuestSearchLimit()),
 		},
 	})
 

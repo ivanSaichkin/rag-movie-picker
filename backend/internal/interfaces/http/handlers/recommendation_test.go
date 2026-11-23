@@ -42,6 +42,12 @@ func bearerHeader() http.Header {
 	return header
 }
 
+func (f *fakeRecommendationService) RecommendGuest(_ context.Context, request models.RecommendationRequest) (models.RecommendationResult, error) {
+	f.calls++
+	f.request = request
+	return f.result, f.err
+}
+
 func jsonWithAuth() http.Header {
 	header := jsonHeader()
 	header.Set("Authorization", "Bearer token")
