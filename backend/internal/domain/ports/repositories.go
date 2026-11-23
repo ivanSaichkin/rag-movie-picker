@@ -26,6 +26,13 @@ type RefreshTokenRepository interface {
 	DeleteExpired(ctx context.Context, cutoff time.Time) (int64, error)
 }
 
+// ChatRepository serves conversations belonging to a single user.
+type ChatRepository interface {
+	ListChats(ctx context.Context, userID uuid.UUID) ([]models.Chat, error)
+	GetChat(ctx context.Context, userID, chatID uuid.UUID) (models.Chat, []models.HistoryEntry, error)
+	DeleteChat(ctx context.Context, userID, chatID uuid.UUID) error
+}
+
 // HistoryRepository stores recommendation snapshots. Every method is scoped to
 // the owner: another user's record is reported as missing.
 type HistoryRepository interface {

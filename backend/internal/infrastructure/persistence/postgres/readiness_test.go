@@ -103,7 +103,11 @@ func TestNewReadinessUsesEmbeddedVersion(t *testing.T) {
 	if err != nil {
 		t.Fatalf("NewReadinessCheck() error = %v", err)
 	}
-	if check.latest != 1 {
-		t.Fatalf("latest = %d, want 1", check.latest)
+	latest, err := LatestVersion()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if check.latest != latest {
+		t.Fatalf("latest = %d, want %d", check.latest, latest)
 	}
 }

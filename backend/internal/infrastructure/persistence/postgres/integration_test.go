@@ -72,13 +72,13 @@ func TestMigrationsApplyAndRollback(t *testing.T) {
 		t.Fatalf("version = %d dirty = %t, want %d and clean", version, dirty, latest)
 	}
 
-	for _, table := range []string{"users", "refresh_tokens", "search_history", "user_movies"} {
+	for _, table := range []string{"users", "refresh_tokens", "search_history", "user_movies", "chats"} {
 		if !tableExists(t, ctx, pool, table) {
 			t.Fatalf("table %q is missing after up", table)
 		}
 	}
 
-	if err := postgres.Down(dsn, 1); err != nil {
+	if err := postgres.Down(dsn, int(latest)); err != nil {
 		t.Fatalf("Down() error = %v", err)
 	}
 
@@ -114,7 +114,7 @@ func TestReadinessRequiresCurrentSchema(t *testing.T) {
 	if err == nil {
 		t.Fatal("readiness must fail when migrations are absent")
 	}
-	if !strings.Contains(err.Error(), "schema version 0") {
+	if !strings.Contains(err.Error(), "schema version 1") {
 		t.Fatalf("error %q must report the applied version", err)
 	}
 }
@@ -305,9 +305,12 @@ func TestSearchHistoryConstraints(t *testing.T) {
 		t.Fatalf("create user: %v", err)
 	}
 
+	if _, err := pool.Exec(ctx, `INSERT INTO chats(id,user_id) VALUES ($1,$1)`, user.ID); err != nil {
+		t.Fatal(err)
+	}
 	const insert = `
-		INSERT INTO search_history (user_id, query, filters, requested_limit, response)
-		VALUES ($1, $2, $3, $4, $5)`
+ INSERT INTO search_history (chat_id,user_id, query, filters, requested_limit, response)
+ VALUES ($1,$1,$2,$3,$4,$5)`
 
 	cases := []struct {
 		name    string

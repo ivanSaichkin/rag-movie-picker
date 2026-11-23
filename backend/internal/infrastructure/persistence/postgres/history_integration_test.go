@@ -170,3 +170,59 @@ func TestHistoryRepositoryRoundTrip(t *testing.T) {
 func int32Pointer(value int32) *int32 {
 	return &value
 }
+
+func TestLegacyChatMigrationAndIsolation(t *testing.T) {
+	dsn, pool := newTestDatabase(t)
+	ctx := context.Background()
+	if err := postgres.Down(dsn, 1); err != nil {
+		t.Fatal(err)
+	}
+	users := postgres.NewUserRepository(pool)
+	owner, err := users.Create(ctx, models.User{Email: "owner@example.org", PasswordHash: "hash"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	other, err := users.Create(ctx, models.User{Email: "other@example.org", PasswordHash: "hash"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var legacy uuid.UUID
+	err = pool.QueryRow(ctx, `INSERT INTO search_history(user_id,query,filters,requested_limit,response)
+ VALUES ($1,'космос','{}',2,'{"mode":"empty"}') RETURNING id`, owner.ID).Scan(&legacy)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := postgres.Up(dsn); err != nil {
+		t.Fatal(err)
+	}
+	repo := postgres.NewHistoryRepository(pool)
+	chats, err := repo.ListChats(ctx, owner.ID)
+	if err != nil || len(chats) != 1 || chats[0].ID != legacy {
+		t.Fatalf("migrated chats=%v err=%v", chats, err)
+	}
+	turn := models.HistoryEntry{ChatID: &legacy, UserID: other.ID, Query: "новый запрос", RequestedLimit: 2, Response: models.Recommendation{Mode: "empty"}}
+	if _, err := repo.Create(ctx, turn); !errors.Is(err, rules.ErrNotFound) {
+		t.Fatalf("foreign append err=%v", err)
+	}
+	if _, _, err := repo.GetChat(ctx, other.ID, legacy); !errors.Is(err, rules.ErrNotFound) {
+		t.Fatalf("foreign read err=%v", err)
+	}
+	if err := repo.DeleteChat(ctx, other.ID, legacy); !errors.Is(err, rules.ErrNotFound) {
+		t.Fatalf("foreign delete err=%v", err)
+	}
+	turn.UserID = owner.ID
+	saved, err := repo.Create(ctx, turn)
+	if err != nil {
+		t.Fatal(err)
+	}
+	chat, turns, err := repo.GetChat(ctx, owner.ID, legacy)
+	if err != nil || len(turns) != 2 || turns[0].ID != legacy || turns[1].ID != saved.ID || chat.Title != "космос" {
+		t.Fatalf("restored chat=%v turns=%v err=%v", chat, turns, err)
+	}
+	if err := repo.DeleteChat(ctx, owner.ID, legacy); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := repo.Get(ctx, owner.ID, saved.ID); !errors.Is(err, rules.ErrNotFound) {
+		t.Fatalf("cascade err=%v", err)
+	}
+}

@@ -44,7 +44,7 @@ go run ./cmd/migrate down 1    # откатить один шаг
 
 ## 4. Схема
 
-Актуальная схема — [0001_init.up.sql](../internal/infrastructure/persistence/postgres/migrations/0001_init.up.sql).
+Схема задана [первой миграцией](../internal/infrastructure/persistence/postgres/migrations/0001_init.up.sql) и [миграцией чатов](../internal/infrastructure/persistence/postgres/migrations/0002_chats.up.sql). Поля `user_id` и `chat_id` каждой подборки вместе ссылаются на чат того же владельца. Старые записи получают отдельный чат с тем же UUID.
 
 ### `users`
 

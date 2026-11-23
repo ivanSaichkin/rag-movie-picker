@@ -56,10 +56,13 @@ func (f *fakeRAG) Movie(context.Context, int64) (models.MovieCard, error) {
 
 type fakeHistory struct {
 	id        uuid.UUID
+	checkErr  error
 	createErr error
 	calls     int
 	entry     models.HistoryEntry
 }
+
+func (f *fakeHistory) CheckChat(context.Context, uuid.UUID, uuid.UUID) error { return f.checkErr }
 
 func (f *fakeHistory) Create(_ context.Context, entry models.HistoryEntry) (models.HistoryEntry, error) {
 	f.calls++
@@ -146,6 +149,40 @@ func TestRecommendResolvesLimitAndStoresHistory(t *testing.T) {
 	}
 	if result.Response.Mode != "generated" || len(result.Response.Items) != 1 {
 		t.Fatalf("result = %+v", result.Response)
+	}
+}
+
+func TestRecommendGuestForcesRetrievalAndSkipsHistory(t *testing.T) {
+	enable := true
+	rag := &fakeRAG{response: models.Recommendation{Mode: "retrieval_only"}}
+	history := &fakeHistory{}
+	service := newService(&fakeCatalog{catalog: catalogFixture()}, rag, history)
+	result, err := service.RecommendGuest(t.Context(), models.RecommendationRequest{
+		Query: " space ", DisableLLM: false, GenerateExplanations: &enable,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	request := rag.request
+	if rag.calls != 1 || !request.DisableLLM || request.GenerateExplanations == nil || *request.GenerateExplanations {
+		t.Fatalf("unexpected guest RAG request: %+v", request)
+	}
+	if request.Query != "space" || request.Limit == nil || *request.Limit != 10 {
+		t.Fatalf("unresolved guest query or limit: %+v", request)
+	}
+	if result.Response.Mode != "retrieval_only" || result.HistoryID != nil || history.calls != 0 {
+		t.Fatalf("guest result = %+v; history writes = %d", result, history.calls)
+	}
+}
+
+func TestRecommendGuestRejectsSavedChatBeforeSearch(t *testing.T) {
+	catalog, rag, history := &fakeCatalog{}, &fakeRAG{}, &fakeHistory{}
+	service := newService(catalog, rag, history)
+	chatID := uuid.New()
+	_, err := service.RecommendGuest(t.Context(), models.RecommendationRequest{Query: "space", ChatID: &chatID})
+	var validationErr *rules.ValidationError
+	if !errors.As(err, &validationErr) || catalog.calls != 0 || rag.calls != 0 || history.calls != 0 {
+		t.Fatalf("guest chat request: err=%v, catalog=%d, rag=%d, history=%d", err, catalog.calls, rag.calls, history.calls)
 	}
 }
 
@@ -290,5 +327,27 @@ func TestRecommendStoresEmptyAnswer(t *testing.T) {
 	}
 	if history.calls != 1 || result.HistoryID == nil {
 		t.Fatalf("empty answer must be stored: calls=%d, id=%v", history.calls, result.HistoryID)
+	}
+}
+
+func TestChatCheckedBeforeRetrieval(t *testing.T) {
+	rag := &fakeRAG{}
+	history := &fakeHistory{checkErr: rules.ErrNotFound}
+	service := newService(&fakeCatalog{catalog: catalogFixture()}, rag, history)
+	id := uuid.New()
+	request := models.RecommendationRequest{Query: "космос", ChatID: &id}
+	_, err := service.Recommend(context.Background(), testUserID, request)
+	if !errors.Is(err, rules.ErrNotFound) || rag.calls != 0 || history.calls != 0 {
+		t.Fatalf("missing chat err=%v, RAG calls=%d, saves=%d", err, rag.calls, history.calls)
+	}
+	_, err = service.RecommendGuest(context.Background(), request)
+	var validation *rules.ValidationError
+	if !errors.As(err, &validation) || rag.calls != 0 {
+		t.Fatalf("guest chat err=%v, RAG calls=%d", err, rag.calls)
+	}
+	history.checkErr = nil
+	result, err := service.Recommend(context.Background(), testUserID, request)
+	if err != nil || result.ChatID == nil || *result.ChatID != id {
+		t.Fatalf("append chat result=%+v, err=%v", result, err)
 	}
 }
