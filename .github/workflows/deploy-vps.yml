@@ -1,0 +1,62 @@
+# Stage 1 deployment for the VPS.
+#
+# The API image is built in GitHub Actions and pushed to GHCR. This workflow
+# only switches the image in the existing /opt/movie-picker/compose.json,
+# applies migrations and recreates the API. PostgreSQL, Redis, Qdrant, Caddy
+# and the Python recommender keep running as they are.
+
+name: Deploy VPS
+
+on:
+  workflow_run:
+    workflows: ["Go backend CI"]
+    types: [completed]
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-vps-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    if: >
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.head_branch == 'main'
+    runs-on: ubuntu-24.04
+    environment: production
+
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+          persist-credentials: false
+
+      - name: Resolve image
+        run: |
+          repo="$(echo '${{ github.repository }}' | tr '[:upper:]' '[:lower:]')"
+          sha="${{ github.event.workflow_run.head_sha }}"
+          echo "IMAGE=ghcr.io/${repo}/api:sha-${sha}" >> "$GITHUB_ENV"
+          echo "COMMIT=${sha}" >> "$GITHUB_ENV"
+
+      - name: Deploy over SSH
+        env:
+          SSH_HOST: ${{ secrets.SSH_HOST }}
+          SSH_PORT: ${{ secrets.SSH_PORT }}
+          SSH_USER: ${{ secrets.SSH_USER }}
+          SSH_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          SSH_KNOWN_HOSTS: ${{ secrets.SSH_KNOWN_HOSTS }}
+        run: |
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$SSH_KEY" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          printf '%s\n' "$SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts
+
+          port="${SSH_PORT:-22}"
+          ssh -i ~/.ssh/id_ed25519 \
+            -p "$port" \
+            -o UserKnownHostsFile=~/.ssh/known_hosts \
+            "$SSH_USER@$SSH_HOST" \
+            "bash -s -- '$IMAGE' '$COMMIT'" < deploy/vps/deploy.sh
