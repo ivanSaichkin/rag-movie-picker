@@ -64,9 +64,15 @@ os.replace(temporary, path)
 PY
 
 echo "deploying ${image} (commit ${commit})"
+# Compose may skip the pull when the VPS uses pull_policy: never, so pull the
+# image explicitly and let compose use the local copy afterwards.
+docker pull "$image"
 docker compose -f "$compose" pull api migrate
-docker compose -f "$compose" run --rm migrate
-docker compose -f "$compose" up -d --no-deps api
+# This script is piped over SSH; run must not consume its stdin.
+docker compose -f "$compose" run --rm migrate < /dev/null
+# Recreate explicitly: the older container may be reported healthy while still
+# running the previous image if compose considers it up to date.
+docker compose -f "$compose" up -d --no-deps --force-recreate api
 
 port="$(python3 - "$compose" <<'PY'
 import json
