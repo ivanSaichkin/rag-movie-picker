@@ -1,0 +1,18 @@
+# Example: HTTPS for the Go API. Replace the site address with your domain
+# or public IP; changing this file does not change the server automatically.
+{
+    admin off
+    servers {
+        protocols h1 h2
+    }
+}
+
+https://app.example.com {
+    tls {
+        issuer acme {
+            dir https://acme-v02.api.letsencrypt.org/directory
+            profile shortlived
+        }
+    }
+    reverse_proxy 127.0.0.1:8080
+}
