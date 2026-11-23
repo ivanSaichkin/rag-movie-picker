@@ -24,7 +24,7 @@
 2. CI после тестов собирает интегрированный образ (Go + frontend) и пушит его в GHCR с тегом `sha-<commit>`.
 3. `Deploy VPS` запускается только после успешного CI.
 4. Workflow заходит по SSH и запускает `deploy.sh`.
-5. Скрипт сохраняет `compose.json`, меняет образ у `api` и `migrate`, делает `pull`, `migrate`, `up -d api`, ждёт `/ready` и проверяет, что регистрация отвечает 404.
+5. Скрипт сохраняет `compose.json`, меняет образ у `api` и `migrate`, явно делает `docker pull` (на VPS может стоять `pull_policy: never`), выполняет `migrate` и пересоздаёт `api` с `--force-recreate`, ждёт `/ready` и проверяет, что регистрация отвечает 404. `migrate` запускается с redirected stdin: скрипт передаётся по SSH через `bash -s`, и `docker compose run` не должен съедать его stdin.
 6. При ошибке возвращает старый `compose.json` и перезапускает старый api.
 
 ## Требования к серверу
