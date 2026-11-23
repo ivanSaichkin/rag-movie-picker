@@ -23,6 +23,7 @@ func TestLoadDefaults(t *testing.T) {
 	unsetenv(t, "ACCESS_TOKEN_TTL")
 	unsetenv(t, "REFRESH_TOKEN_TTL")
 	unsetenv(t, "COOKIE_SECURE")
+	unsetenv(t, "REGISTRATION_ENABLED")
 	unsetenv(t, "REDIS_ADDR")
 	unsetenv(t, "RAG_GRPC_ADDR")
 	unsetenv(t, "RAG_TIMEOUT_SECONDS")
@@ -55,6 +56,9 @@ func TestLoadDefaults(t *testing.T) {
 	}
 	if cfg.CookieSecure {
 		t.Fatal("CookieSecure must default to false for local HTTP")
+	}
+	if cfg.RegistrationEnabled {
+		t.Fatal("RegistrationEnabled must default to false")
 	}
 	if cfg.Argon2.Iterations != 3 || cfg.Argon2.MemoryMiB != 64 || cfg.Argon2.Parallelism != 2 {
 		t.Fatalf("Argon2 defaults = %+v", cfg.Argon2)
@@ -109,6 +113,7 @@ func TestLoadOverrides(t *testing.T) {
 	t.Setenv("ACCESS_TOKEN_TTL", "120")
 	t.Setenv("REFRESH_TOKEN_TTL", "3600")
 	t.Setenv("COOKIE_SECURE", "true")
+	t.Setenv("REGISTRATION_ENABLED", "true")
 	t.Setenv("ARGON2_ITERATIONS", "5")
 	t.Setenv("ARGON2_MEMORY_MIB", "128")
 	t.Setenv("ARGON2_PARALLELISM", "4")
@@ -138,6 +143,9 @@ func TestLoadOverrides(t *testing.T) {
 	}
 	if !cfg.CookieSecure {
 		t.Fatal("CookieSecure must be true")
+	}
+	if !cfg.RegistrationEnabled {
+		t.Fatal("RegistrationEnabled must be true when explicitly enabled")
 	}
 	if cfg.Argon2 != (config.Argon2Config{Iterations: 5, MemoryMiB: 128, Parallelism: 4}) {
 		t.Fatalf("Argon2 = %+v", cfg.Argon2)

@@ -1,4 +1,4 @@
-import { ApiError, MoviePickerApi } from './api.js';
+import { ApiError, MoviePickerApi } from './api.js?v=2';
 
 const $ = (selector) => document.querySelector(selector);
 const dom = {
@@ -12,7 +12,7 @@ const dom = {
   authOpen: $('#auth-open'), authLogout: $('#auth-logout'), account: $('#account'),
   accountEmail: $('#account-email'), authForm: $('#auth-form'), authEmail: $('#auth-email'),
   authPassword: $('#auth-password'), authError: $('#auth-error'), authSubmit: $('#auth-submit'),
-  authMode: $('#auth-mode'), authClose: $('#auth-close'),
+  authClose: $('#auth-close'),
 };
 
 const genreNames = {
@@ -45,7 +45,6 @@ let account = null;
 let catalog = null;
 let catalogLoading = null;
 let authBusy = true;
-let authMode = 'login';
 let pending = null;
 let requestVersion = 0;
 let lastDrawerFocus = null;
@@ -166,26 +165,14 @@ function showAuthError(message = '') {
 
 function setAuthBusy(value) {
   authBusy = value;
-  for (const button of [dom.authOpen, dom.authLogout, dom.authSubmit, dom.authMode, dom.authClose]) {
+  for (const button of [dom.authOpen, dom.authLogout, dom.authSubmit, dom.authClose]) {
     button.disabled = value;
   }
 }
 
-function setAuthMode(mode) {
-  authMode = mode;
-  const registering = mode === 'register';
-  $('#auth-title').textContent = registering ? 'Регистрация' : 'Вход';
-  dom.authSubmit.textContent = registering ? 'Зарегистрироваться' : 'Войти';
-  dom.authMode.textContent = registering ? 'У меня есть аккаунт' : 'Создать аккаунт';
-  dom.authPassword.autocomplete = registering ? 'new-password' : 'current-password';
-  dom.authPassword.minLength = registering ? 8 : 1;
-  dom.authPassword.value = '';
-  showAuthError();
-}
-
 function openAuth(message) {
-  setAuthMode('login');
-  if (message) showAuthError(message);
+  dom.authPassword.value = '';
+  showAuthError(message);
   if (!dom.auth.open) dom.auth.showModal();
   dom.authEmail.focus();
 }
@@ -202,7 +189,7 @@ async function authenticate(event) {
   setAuthBusy(true);
   showAuthError();
   try {
-    const user = await client.authenticate(authMode, { email: dom.authEmail.value.trim(), password: dom.authPassword.value });
+    const user = await client.login({ email: dom.authEmail.value.trim(), password: dom.authPassword.value });
     dom.authForm.reset();
     dom.auth.close();
     setAccount(user);
@@ -322,7 +309,7 @@ async function submitQuery() {
   const query = dom.query.value.trim();
   if (!query || pending || authBusy) return;
   if (!account) {
-    openAuth('Войдите или зарегистрируйтесь, чтобы получить подборку.');
+    openAuth('Войдите, чтобы получить подборку.');
     return;
   }
   if (!catalog && !(await loadCatalog())) return;
@@ -493,7 +480,6 @@ document.body.append(status);
 dom.authOpen.addEventListener('click', () => openAuth());
 dom.authLogout.addEventListener('click', logout);
 dom.authForm.addEventListener('submit', authenticate);
-dom.authMode.addEventListener('click', () => setAuthMode(authMode === 'login' ? 'register' : 'login'));
 dom.authClose.addEventListener('click', () => dom.auth.close());
 dom.auth.addEventListener('cancel', (event) => { if (authBusy) event.preventDefault(); });
 dom.auth.addEventListener('close', () => { dom.authPassword.value = ''; });

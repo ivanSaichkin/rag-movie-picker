@@ -38,9 +38,9 @@ export class MoviePickerApi {
   #token = '';
   #refreshing = null;
 
-  async authenticate(mode, body) {
+  async login(body) {
     return withRefreshLock(async () => {
-      const session = await request('/auth/' + mode, { method: 'POST', body });
+      const session = await request('/auth/login', { method: 'POST', body });
       this.#token = session.access_token;
       return session.user;
     });

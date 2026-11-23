@@ -59,6 +59,7 @@ func TestBackendEndToEnd(t *testing.T) {
 		AccessTokenTTL:         15 * time.Minute,
 		RefreshTokenTTL:        time.Hour,
 		CookieSecure:           false,
+		RegistrationEnabled:    true,
 		Argon2:                 config.Argon2Config{Iterations: 1, MemoryMiB: 8, Parallelism: 1},
 		RateLimit:              config.RateLimitConfig{AuthPerMinute: 1000, RegisterPerHour: 1000, RefreshPerMinute: 1000},
 		RAGGRPCAddress:         ragAddress,

@@ -24,17 +24,18 @@ type Limiters struct {
 
 // Params describes the handlers and middleware registered by the router.
 type Params struct {
-	Logger         *slog.Logger
-	Health         *handlers.HealthHandler
-	Auth           *handlers.AuthHandler
-	Catalog        *handlers.CatalogHandler
-	Recommendation *handlers.RecommendationHandler
-	History        *handlers.HistoryHandler
-	UserMovies     *handlers.UserMovieHandler
-	Authenticate   gin.HandlerFunc
-	AllowedOrigin  string
-	FrontendDir    string
-	Limiters       Limiters
+	Logger              *slog.Logger
+	Health              *handlers.HealthHandler
+	Auth                *handlers.AuthHandler
+	Catalog             *handlers.CatalogHandler
+	Recommendation      *handlers.RecommendationHandler
+	History             *handlers.HistoryHandler
+	UserMovies          *handlers.UserMovieHandler
+	Authenticate        gin.HandlerFunc
+	AllowedOrigin       string
+	FrontendDir         string
+	RegistrationEnabled bool
+	Limiters            Limiters
 }
 
 // New assembles the middleware chain, the error handlers and the routes.
@@ -78,7 +79,9 @@ func New(params Params) *gin.Engine {
 
 	v1 := engine.Group("/api/v1")
 	auth := v1.Group("/auth")
-	auth.POST("/register", with(params.Limiters.Register, params.Auth.Register)...)
+	if params.RegistrationEnabled {
+		auth.POST("/register", with(params.Limiters.Register, params.Auth.Register)...)
+	}
 	auth.POST("/login", with(params.Limiters.Login, params.Auth.Login)...)
 	auth.POST("/refresh", with(params.Limiters.Refresh, params.Auth.Refresh)...)
 	auth.POST("/logout", params.Auth.Logout)

@@ -23,6 +23,8 @@
 
 ### 2.1. Регистрация
 
+По умолчанию публичной регистрации нет. Маршрут возвращает 404, а сайт показывает только форму входа. Для создания аккаунта на локальной машине временно задайте `REGISTRATION_ENABLED=true` (в `backend/.env` для Compose), перезапустите API и отправьте `POST /api/v1/auth/register` с полями `email` и `password` из примера ниже. После создания верните `REGISTRATION_ENABLED=false` и снова перезапустите API.
+
 Запрос проходит цепочку `RequestID → Logging → Recovery → CheckOrigin → лимитер register` и попадает в [AuthHandler.Register](../internal/interfaces/http/handlers/auth.go), затем в [AuthenticationService.Register](../internal/infrastructure/services/auth/service.go).
 
 1. JSON декодируется с запретом неизвестных полей (`binding.EnableDecoderDisallowUnknownFields` в [router.go](../internal/infrastructure/adapters/router/router.go)); мусор или лишнее поле → 422 `VALIDATION_ERROR`.

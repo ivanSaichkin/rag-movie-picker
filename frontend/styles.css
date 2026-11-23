@@ -184,7 +184,6 @@ input::-webkit-inner-spin-button, input::-webkit-outer-spin-button { appearance:
 .auth-form input { width: 100%; padding: 10px 12px; color: var(--text); background: var(--surface); border: 1px solid var(--line); border-radius: 6px; }
 .auth-form .form-error { color: #ffad98; margin: 0; }
 .auth-form .primary-button { justify-content: center; }
-.auth-mode { justify-self: center; color: var(--blue); }
 .auth-form button:disabled { opacity: .55; }
 .primary-button { display: inline-flex; gap: 12px; align-items: center; border-radius: 6px; padding: 10px 15px; background: #d7d9c8; color: #242b22; margin-top: 15px; font-size: 12px; }
 .primary-button .icon { width: 16px; height: 16px; }

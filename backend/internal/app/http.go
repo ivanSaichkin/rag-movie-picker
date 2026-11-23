@@ -21,16 +21,17 @@ func newHTTPServer(cfg config.Config, logger *slog.Logger, infra *infrastructure
 	healthHandler := handlers.NewHealthHandler(appServices.readinessCheck)
 
 	engine := router.New(router.Params{
-		Logger:         logger,
-		Health:         healthHandler,
-		Auth:           authHandler,
-		Catalog:        catalogHandler,
-		Recommendation: recommendationHandler,
-		History:        historyHandler,
-		UserMovies:     userMovieHandler,
-		Authenticate:   middleware.Authenticate(appServices.tokenIssuer),
-		AllowedOrigin:  cfg.AllowedOrigin,
-		FrontendDir:    cfg.FrontendDir,
+		Logger:              logger,
+		Health:              healthHandler,
+		Auth:                authHandler,
+		Catalog:             catalogHandler,
+		Recommendation:      recommendationHandler,
+		History:             historyHandler,
+		UserMovies:          userMovieHandler,
+		Authenticate:        middleware.Authenticate(appServices.tokenIssuer),
+		AllowedOrigin:       cfg.AllowedOrigin,
+		FrontendDir:         cfg.FrontendDir,
+		RegistrationEnabled: cfg.RegistrationEnabled,
 		Limiters: router.Limiters{
 			Login:    middleware.RateLimit(infra.cache, "login", cfg.RateLimit.AuthPerMinute, time.Minute),
 			Register: middleware.RateLimit(infra.cache, "register", cfg.RateLimit.RegisterPerHour, time.Hour),

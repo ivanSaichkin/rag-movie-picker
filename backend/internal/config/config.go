@@ -78,6 +78,7 @@ type Config struct {
 	AccessTokenTTL         time.Duration
 	RefreshTokenTTL        time.Duration
 	CookieSecure           bool
+	RegistrationEnabled    bool
 	Argon2                 Argon2Config
 	RateLimit              RateLimitConfig
 	Redis                  RedisConfig
@@ -225,6 +226,13 @@ func loadAuth(cfg *Config) error {
 			return err
 		}
 		cfg.CookieSecure = secure
+	}
+	if raw, ok := os.LookupEnv("REGISTRATION_ENABLED"); ok {
+		enabled, err := parseBool("REGISTRATION_ENABLED", raw)
+		if err != nil {
+			return err
+		}
+		cfg.RegistrationEnabled = enabled
 	}
 	return nil
 }
