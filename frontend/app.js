@@ -2,10 +2,13 @@ import { ApiError, MoviePickerApi } from './api.js?v=4';
 
 const $ = (selector, root = document) => root.querySelector(selector);
 const dom = {
-  workspace: $('#workspace'), title: $('#workspace-title'), chatStage: $('#chat-stage'),
+  shell: $('#app-shell'), workspace: $('#workspace'), title: $('#workspace-title'), chatStage: $('#chat-stage'),
+  sidebarHeader: $('#sidebar-header'), workspaceHeader: $('#workspace-header'),
   messages: $('#messages'), welcome: $('#welcome'), welcomeNote: $('#welcome-note'),
   chatNav: $('#chat-nav'), chatList: $('#chat-list'), chatsNote: $('#chats-note'),
-  chatsToggle: $('#chats-toggle'), composer: $('#chat-form'), composerArea: $('#composer-area'),
+  chatsToggle: $('#chats-toggle'), sidebarToggle: $('#sidebar-toggle'),
+  chatsClose: $('#chats-close'), chatDrawer: $('#chat-drawer'), chatScrim: $('#chat-scrim'),
+  composer: $('#chat-form'), composerArea: $('#composer-area'),
   dock: $('#composer-dock'), query: $('#query'), send: $('#send-button'), error: $('#form-error'),
   genres: $('#genre-options'), yearFrom: $('#year-from'), yearTo: $('#year-to'),
   rating: $('#rating'), limit: $('#result-count'), strategy: $('#strategy'),
@@ -15,11 +18,13 @@ const dom = {
   removeDialog: $('#remove-dialog'),
   profile: $('#profile'), logout: $('#auth-logout'), collectionLink: $('#my-movies'),
   collection: $('#collection'), tabs: $('#collection-tabs'), collectionPanel: $('#collection-panel'),
-  collectionList: $('#collection-list'), collectionDetail: $('#collection-detail'),
+  collectionDisplay: $('#collection-display'), collectionList: $('#collection-list'),
+  collectionDetail: $('#collection-detail'),
   collectionFeedback: $('#collection-feedback'), pagination: $('#collection-pagination'),
   previousPage: $('#collection-prev'), nextPage: $('#collection-next'), status: $('#status'),
-  theme: $('#theme-toggle'),
+  theme: $('#theme-toggle'), mobileThemeSlot: $('#mobile-theme-slot'),
 };
+const mobileLayout = matchMedia('(max-width: 720px)');
 
 const genreNames = {
   'Science Fiction': 'Фантастика', Drama: 'Драма', Comedy: 'Комедия',
@@ -44,7 +49,6 @@ const genreScenes = {
   archive: ['reel', 'station', 'road', 'records'],
 };
 const strategyNames = { bm25: 'По словам', transformer: 'По смыслу', hybrid: 'Гибридный поиск' };
-const modeNames = { generated: 'Отбор и пояснения', retrieval_only: 'Результаты поиска', empty: 'Без результатов' };
 const wanted = 'want_to_watch';
 const watched = 'watched';
 const statuses = [wanted, watched];
@@ -66,7 +70,6 @@ let activeChat = createChat();
 let collectionOpen = false;
 let collectionStatus = wanted;
 let selectedMovie = null;
-let collectionListScroll = 0;
 let pendingRemoval = null;
 const lists = new Map();
 const movieStates = new Map();
@@ -134,7 +137,7 @@ function renderChatList() {
     time.dateTime = chat.date.toISOString();
     tab.append(element('span', 'chat-name', chat.title), time);
     if (!collectionOpen && activeChat === chat) tab.setAttribute('aria-current', 'true');
-    tab.addEventListener('click', () => switchChat(chat));
+    tab.addEventListener('click', () => switchChat(chat, { focus: !mobileLayout.matches }));
     item.append(tab);
     dom.chatList.append(item);
   }
@@ -201,7 +204,7 @@ async function loadChatTurns(chat) {
 }
 
 function renderView() {
-  dom.title.textContent = collectionOpen ? 'Мои фильмы' : activeChat.title || 'Киноархив';
+  dom.title.textContent = collectionOpen ? 'Мои фильмы' : 'Киноархив';
   dom.collectionLink.setAttribute('aria-pressed', String(collectionOpen));
   dom.collection.hidden = !collectionOpen;
   dom.chatStage.hidden = collectionOpen;
@@ -237,7 +240,7 @@ function switchChat(chat, { focus = true } = {}) {
   dom.query.value = chat.draft;
   setMessage(dom.error);
   hidePopovers();
-  dom.chatsToggle.setAttribute('aria-expanded', 'false');
+  setMobileChats(false);
   renderView();
   renderChatList();
   refreshRecommendationActions();
@@ -360,7 +363,6 @@ function setAccount(user, { keepGuestDraft = false, restoreId = null } = {}) {
   movieUpdates.clear();
   collectionStatus = wanted;
   selectedMovie = null;
-  collectionListScroll = 0;
   pendingRemoval = null;
   if (dom.removeDialog.open) dom.removeDialog.close();
   $('#remove-description').textContent = '';
@@ -500,8 +502,8 @@ function movieMetadata(movie, includeRating = false) {
   return metadata.filter(Boolean).join(' · ');
 }
 
-function archiveFrame(movie, { className = '', usedScenes } = {}) {
-  const frame = element('span', 'archive-frame ' + className);
+function archiveFrame(movie, usedScenes) {
+  const frame = element('span', 'archive-frame');
   const index = Math.abs(Number(movie.movie_id) || 0);
   const genres = (movie.genres || []).map(({ name }) => sceneGenre[name]).filter(Boolean);
   const primary = genres.find((genre) => genre !== 'drama') || genres[0] || 'archive';
@@ -517,10 +519,44 @@ function archiveFrame(movie, { className = '', usedScenes } = {}) {
   return frame;
 }
 
-function describeMovie(movie, headingLevel, { explain = false, cover = false } = {}) {
+function dvdCase(movie, className, usedScenes) {
+  const card = button('', 'dvd-case ' + className);
+  card.dataset.movieId = movie.movie_id;
+  card.setAttribute('aria-label', movie.title);
+  card.title = movie.title;
+  const body = element('span', 'dvd-case-body');
+  body.setAttribute('aria-hidden', 'true');
+  const front = element('span', 'dvd-case-front');
+  const fallback = archiveFrame(movie, usedScenes);
+  fallback.prepend(element('span', 'dvd-cover-title', movie.title));
+  front.append(fallback, element('span', 'dvd-poster'));
+  const spine = element('span', 'dvd-case-spine');
+  spine.append(element('span', 'dvd-spine-title', movie.title));
+  body.append(front, spine);
+  card.append(body);
+  return card;
+}
+
+function bindCaseSelection(card, select) {
+  card.addEventListener('pointermove', (event) => {
+    if (event.pointerType === 'mouse' && !event.buttons) select(false);
+  });
+  card.addEventListener('click', () => select(true));
+}
+
+function revealCase(shelf, card) {
+  const outer = shelf.getBoundingClientRect();
+  const inner = card.getBoundingClientRect();
+  const width = $('.dvd-case-body', card).offsetWidth;
+  const left = inner.left - outer.left - 8;
+  const right = inner.left + width - outer.right + 8;
+  if (left < 0) shelf.scrollBy({ left });
+  else if (right > 0) shelf.scrollBy({ left: right });
+}
+
+function describeMovie(movie, headingLevel, { explain = false } = {}) {
   const content = element('div', 'movie-description');
   const title = element('h' + headingLevel, 'movie-title', movie.title);
-  if (cover) content.append(archiveFrame(movie, { className: 'detail-frame' }));
   content.append(title);
   const metadata = movieMetadata(movie, true);
   if (metadata) content.append(element('p', 'movie-meta', metadata));
@@ -552,6 +588,8 @@ function recommendationActions(movie) {
   const markWatched = movieAction(movie, 'mark-watched', 'Отметить просмотренным', 'eye', { iconOnly: true });
   bookmark.addEventListener('click', () => updateMovieFromRecommendation(movie, 'bookmark'));
   markWatched.addEventListener('click', () => updateMovieFromRecommendation(movie, 'mark-watched'));
+  bookmark.append(element('span', 'recommendation-action-label'));
+  markWatched.append(element('span', 'recommendation-action-label'));
   actions.append(bookmark, markWatched);
   syncRecommendationActions(actions);
   return actions;
@@ -570,6 +608,7 @@ function syncRecommendationActions(actions) {
   for (const [control, label] of [[bookmark, bookmarkLabel], [markWatched, watchedLabel]]) {
     control.setAttribute('aria-label', label);
     control.title = label;
+    $('.recommendation-action-label', control).textContent = label;
     control.setAttribute('aria-disabled', String(busy || state === watched));
   }
 }
@@ -584,13 +623,7 @@ function renderResponse(response) {
   result.setAttribute('aria-label', 'Ответ Movie Picker');
   if (response.mode) result.dataset.mode = response.mode;
   if (response.strategy_used) result.dataset.strategyUsed = response.strategy_used;
-  const heading = element('div', 'recommendation-heading');
-  const labels = [
-    strategyNames[response.strategy_used] || response.strategy_used,
-    modeNames[response.mode] || response.mode,
-  ].filter(Boolean);
-  heading.append(element('h2', '', labels.join(' · ') || 'Подборка'));
-  result.append(heading);
+  result.append(element('h2', 'sr-only', 'Подборка фильмов'));
 
   const warnings = (response.warnings || []).filter((warning) => warning.message);
   if (warnings.length) {
@@ -613,46 +646,39 @@ function renderResponse(response) {
   const previous = button('Предыдущий фильм', 'button icon-button', 'left', true);
   const next = button('Следующий фильм', 'button icon-button', 'right', true);
   controls.append(previous, next);
-  heading.append(controls);
 
-  const strip = element('div', 'filmstrip');
+  const stage = element('div', 'recommendation-shelf dvd-display');
+  const lamp = element('span', 'dvd-lamp');
+  lamp.setAttribute('aria-hidden', 'true');
+  const strip = element('div', 'filmstrip dvd-shelf');
   strip.setAttribute('role', 'group');
   strip.setAttribute('aria-label', 'Фильмы в подборке');
   const details = element('div', 'recommendation-details');
   const usedScenes = new Set();
-  const frames = items.map((movie) => {
-    const card = button('', 'filmstrip-frame');
-    card.dataset.movieId = movie.movie_id;
-    card.setAttribute('aria-label', movie.title);
-    card.append(archiveFrame(movie, { usedScenes }), element('span', 'filmstrip-title', movie.title));
+  const frames = items.map((movie, index) => {
+    const card = dvdCase(movie, 'filmstrip-frame', usedScenes);
+    bindCaseSelection(card, (scroll) => select(index, { scroll }));
     strip.append(card);
     return card;
   });
-  let selected = 0;
+  let selected = -1;
   function select(index, { focus = false, scroll = false } = {}) {
     if (index < 0 || index >= frames.length) return;
-    selected = index;
     const frame = frames[index];
-    for (const [position, card] of frames.entries()) {
-      card.setAttribute('aria-pressed', String(position === index));
-      card.tabIndex = position === index ? 0 : -1;
+    if (selected !== index) {
+      selected = index;
+      for (const [position, card] of frames.entries()) {
+        card.setAttribute('aria-pressed', String(position === index));
+        card.tabIndex = position === index ? 0 : -1;
+      }
+      previous.setAttribute('aria-disabled', String(index === 0));
+      next.setAttribute('aria-disabled', String(index === frames.length - 1));
+      details.replaceChildren(describeMovie(items[index], 3, { explain: true }), recommendationActions(items[index]));
     }
-    previous.setAttribute('aria-disabled', String(index === 0));
-    next.setAttribute('aria-disabled', String(index === frames.length - 1));
-    details.replaceChildren(describeMovie(items[index], 3, { explain: true }), recommendationActions(items[index]));
     if (focus) frame.focus({ preventScroll: true });
-    if (scroll) {
-      const frameRect = frame.getBoundingClientRect();
-      const stripRect = strip.getBoundingClientRect();
-      const inset = 6;
-      if (frameRect.left < stripRect.left + inset) strip.scrollLeft += frameRect.left - stripRect.left - inset;
-      if (frameRect.right > stripRect.right - inset) strip.scrollLeft += frameRect.right - stripRect.right + inset;
-    }
+    if (scroll) revealCase(strip, frame);
   }
 
-  for (const [index, frame] of frames.entries()) {
-    frame.addEventListener('click', () => select(index, { scroll: true }));
-  }
   strip.addEventListener('keydown', (event) => {
     const target = { ArrowLeft: selected - 1, ArrowRight: selected + 1, Home: 0, End: frames.length - 1 }[event.key];
     if (target === undefined) return;
@@ -662,7 +688,8 @@ function renderResponse(response) {
   previous.addEventListener('click', () => select(selected - 1, { scroll: true }));
   next.addEventListener('click', () => select(selected + 1, { scroll: true }));
   select(0);
-  result.append(strip, details);
+  stage.append(lamp, controls, strip);
+  result.append(stage, details);
   return result;
 }
 
@@ -695,6 +722,7 @@ async function submitQuery() {
     if (account && chat.id) request.chat_id = chat.id;
     if (dom.strategy.value) request.strategy = dom.strategy.value;
     hidePopovers();
+    if (mobileLayout.matches) dom.query.blur();
     if (!chat.date) {
       chat.title = [...query].slice(0, 80).join('');
       chat.date = new Date();
@@ -768,10 +796,12 @@ function renderCollectionList() {
   const data = state?.data;
   const focus = document.activeElement?.closest('.collection-row');
   const focusedId = focus?.dataset.movieId;
+  const scrollLeft = dom.collectionList.scrollLeft;
   let replacement;
   dom.collectionList.replaceChildren();
   dom.collectionFeedback.replaceChildren();
   dom.collectionList.setAttribute('aria-busy', String(Boolean(state?.loading)));
+  dom.collectionDisplay.hidden = !data?.items.length;
   if (state?.error) {
     const message = element('p', 'form-error', state.error);
     message.setAttribute('role', 'alert');
@@ -786,32 +816,25 @@ function renderCollectionList() {
     dom.collectionFeedback.append(element('p', 'muted', 'В списке пока нет фильмов.'));
   }
 
+  const usedScenes = new Set();
   for (const movie of data?.items || []) {
-    const row = button('', 'collection-row');
-    row.dataset.movieId = movie.movie_id;
-    if (selectedMovie?.movie_id === movie.movie_id) row.setAttribute('aria-current', 'true');
-    const copy = element('span', 'collection-row-copy');
-    copy.append(element('strong', '', movie.title));
-    const meta = movieMetadata(movie);
-    if (meta) copy.append(element('small', '', meta));
-    row.append(archiveFrame(movie, { className: 'row-frame' }), copy, icon('chevron'));
-    row.addEventListener('click', () => {
-      collectionListScroll = dom.collectionPanel.scrollTop;
-      selectedMovie = movieStates.get(movie.movie_id) || movie;
-      for (const candidate of dom.collectionList.querySelectorAll('[aria-current]')) candidate.removeAttribute('aria-current');
-      row.setAttribute('aria-current', 'true');
-      setMessage(dom.error);
-      renderCollectionDetail();
-      if (matchMedia('(max-width: 720px)').matches) {
-        dom.collectionPanel.scrollTop = 0;
-        dom.collectionDetail.focus({ preventScroll: true });
+    const row = dvdCase(movie, 'collection-row', usedScenes);
+    row.setAttribute('aria-pressed', String(selectedMovie?.movie_id === movie.movie_id));
+    bindCaseSelection(row, (scroll) => {
+      if (selectedMovie?.movie_id !== movie.movie_id) {
+        selectedMovie = movieStates.get(movie.movie_id) || movie;
+        for (const candidate of dom.collectionList.children) {
+          candidate.setAttribute('aria-pressed', String(candidate === row));
+        }
+        setMessage(dom.error);
+        renderCollectionDetail();
       }
+      if (scroll) revealCase(dom.collectionList, row);
     });
-    const li = element('li');
-    li.append(row);
-    dom.collectionList.append(li);
+    dom.collectionList.append(row);
     if (row.dataset.movieId === focusedId) replacement = row;
   }
+  dom.collectionList.scrollTo({ left: scrollLeft, behavior: 'instant' });
   if (replacement) replacement.focus({ preventScroll: true });
 
   const pages = data ? Math.max(1, Math.ceil(data.total / data.page_size)) : 0;
@@ -871,29 +894,16 @@ function collectionActions(movie) {
 }
 
 function renderCollectionDetail({ focusAction = '' } = {}) {
-  dom.collectionPanel.classList.toggle('has-selection', Boolean(selectedMovie));
   if (!selectedMovie) {
     const placeholder = element('div', 'collection-placeholder');
     placeholder.append(icon('film'), element('p', '', 'Выберите фильм'));
     dom.collectionDetail.replaceChildren(placeholder);
-    dom.collectionDetail.removeAttribute('tabindex');
     return;
   }
-  const toList = button('К списку', 'button collection-back', 'left');
-  toList.addEventListener('click', () => {
-    const movieId = selectedMovie.movie_id;
-    selectedMovie = null;
-    renderCollectionDetail();
-    renderCollectionList();
-    dom.collectionPanel.scrollTop = collectionListScroll;
-    const row = $('.collection-row[data-movie-id="' + movieId + '"]', dom.collectionList);
-    (row || dom.collectionPanel).focus({ preventScroll: true });
-  });
   const article = element('article', 'collection-movie');
   article.dataset.movieId = selectedMovie.movie_id;
-  article.append(describeMovie(selectedMovie, 2, { cover: true }), collectionActions(selectedMovie));
-  dom.collectionDetail.tabIndex = -1;
-  dom.collectionDetail.replaceChildren(toList, article);
+  article.append(describeMovie(selectedMovie, 2), collectionActions(selectedMovie));
+  dom.collectionDetail.replaceChildren(article);
   showCollectionActionState();
   if (focusAction) {
     const next = $('[data-action="' + focusAction + '"]', article);
@@ -938,7 +948,7 @@ function switchCollectionTab(status, { focus = false } = {}) {
   if (status !== collectionStatus) {
     collectionStatus = status;
     selectedMovie = null;
-    collectionListScroll = 0;
+    dom.collectionList.scrollTo({ left: 0, behavior: 'instant' });
     dom.collectionPanel.scrollTop = 0;
     setMessage(dom.error);
     hidePopovers();
@@ -960,11 +970,11 @@ function openCollection() {
   collectionOpen = true;
   collectionStatus = wanted;
   selectedMovie = null;
-  collectionListScroll = 0;
+  dom.collectionList.scrollTo({ left: 0, behavior: 'instant' });
   dom.collectionPanel.scrollTop = 0;
   setMessage(dom.error);
   hidePopovers();
-  dom.chatsToggle.setAttribute('aria-expanded', 'false');
+  setMobileChats(false);
   renderView();
   renderChatList();
   renderCollectionTabs();
@@ -976,7 +986,7 @@ function turnCollectionPage(offset) {
   const page = lists.get(collectionStatus)?.data?.page;
   if (page == null) return;
   selectedMovie = null;
-  collectionListScroll = 0;
+  dom.collectionList.scrollTo({ left: 0, behavior: 'instant' });
   dom.collectionPanel.scrollTop = 0;
   dom.collectionPanel.focus({ preventScroll: true });
   renderCollectionDetail();
@@ -1045,7 +1055,6 @@ async function updateMovie(movie, resolve) {
       selectedMovie = updated?.status === collectionStatus ? updated : null;
       renderCollectionDetail({ focusAction });
       if (!selectedMovie && focusAction) {
-        if (matchMedia('(max-width: 720px)').matches) dom.collectionPanel.scrollTop = collectionListScroll;
         $('[aria-selected="true"]', dom.tabs).focus({ preventScroll: true });
       }
     }
@@ -1104,6 +1113,132 @@ function initTheme() {
   });
 }
 
+function initSidebar() {
+  const storageKey = 'movie-picker-sidebar-collapsed';
+  function render(collapsed) {
+    dom.shell.classList.toggle('sidebar-collapsed', collapsed);
+    dom.sidebarToggle.setAttribute('aria-expanded', String(!collapsed));
+    const label = collapsed ? 'Показать историю чатов' : 'Свернуть историю чатов';
+    dom.sidebarToggle.setAttribute('aria-label', label);
+    dom.sidebarToggle.title = label;
+  }
+  try { render(localStorage.getItem(storageKey) === 'true'); } catch {}
+  dom.sidebarToggle.addEventListener('click', () => {
+    const collapsed = dom.sidebarToggle.getAttribute('aria-expanded') === 'true';
+    render(collapsed);
+    try { localStorage.setItem(storageKey, String(collapsed)); } catch {}
+  });
+}
+
+function setMobileChats(open, { restoreFocus = true } = {}) {
+  const wasOpen = dom.shell.classList.contains('chats-open');
+  if (open === wasOpen || (open && !mobileLayout.matches)) return;
+
+  dom.shell.classList.toggle('chats-open', open);
+  dom.chatsToggle.setAttribute('aria-expanded', String(open));
+  dom.sidebarHeader.inert = open;
+  dom.workspace.inert = open;
+  dom.chatDrawer.inert = !open && mobileLayout.matches;
+  if (open) {
+    hidePopovers();
+    dom.chatDrawer.setAttribute('role', 'dialog');
+    dom.chatDrawer.setAttribute('aria-modal', 'true');
+    dom.chatDrawer.setAttribute('aria-labelledby', 'chat-drawer-title');
+    dom.chatsClose.focus({ preventScroll: true });
+  } else {
+    dom.chatDrawer.removeAttribute('role');
+    dom.chatDrawer.removeAttribute('aria-modal');
+    dom.chatDrawer.removeAttribute('aria-labelledby');
+    if (restoreFocus && mobileLayout.matches) dom.chatsToggle.focus({ preventScroll: true });
+  }
+}
+
+function initChatGestures() {
+  let gesture = null;
+  document.addEventListener('pointerdown', (event) => {
+    if (!mobileLayout.matches || event.pointerType !== 'touch' || !event.isPrimary) return;
+    const open = dom.shell.classList.contains('chats-open');
+    const surface = event.target.closest('#chat-drawer, #sidebar-header, #workspace-header');
+    if (!surface || open !== (surface === dom.chatDrawer)) return;
+    if (!open && event.target.closest('button, a, summary')) return;
+    gesture = { id: event.pointerId, x: event.clientX, y: event.clientY, open, dragging: false };
+  });
+  document.addEventListener('pointermove', (event) => {
+    if (event.pointerId !== gesture?.id || !gesture.open) return;
+    const dx = event.clientX - gesture.x;
+    if (!gesture.dragging && dx < -12 && -dx > Math.abs(event.clientY - gesture.y) * 1.35) {
+      gesture.dragging = true;
+      dom.chatDrawer.setPointerCapture(event.pointerId);
+      dom.shell.classList.add('chats-dragging');
+    }
+    if (gesture.dragging) {
+      const travel = Math.max(-dom.chatDrawer.offsetWidth, Math.min(0, dx));
+      dom.chatDrawer.style.setProperty('--drawer-drag', travel + 'px');
+    }
+  });
+  function finish(event) {
+    if (event.pointerId !== gesture?.id) return;
+    const { x, y, open } = gesture;
+    gesture = null;
+    const dx = event.clientX - x;
+    const dy = event.clientY - y;
+    const left = dx < -55;
+    const rightFromEdge = !open && x < 48 && dx > 55;
+    dom.shell.classList.remove('chats-dragging');
+    if (event.type === 'pointerup' && (left || rightFromEdge) && Math.abs(dx) > Math.abs(dy) * 1.35) {
+      setMobileChats(!open);
+    }
+    dom.chatDrawer.style.removeProperty('--drawer-drag');
+  }
+  document.addEventListener('pointerup', finish);
+  document.addEventListener('pointercancel', finish);
+}
+
+function initMobileLayout() {
+  const viewport = window.visualViewport;
+  const style = document.documentElement.style;
+  let frame = 0;
+
+  function measure() {
+    frame = 0;
+    if (!mobileLayout.matches) return;
+    dom.shell.classList.toggle('is-writing', document.activeElement === dom.query);
+    // Zoom belongs to the browser. Keyboard and browser chrome resize at scale 1.
+    if (viewport && Math.abs(viewport.scale - 1) > 0.01) return;
+    style.setProperty('--mobile-height', Math.round(viewport?.height ?? innerHeight) + 'px');
+    style.setProperty('--mobile-top', Math.round(viewport?.offsetTop ?? 0) + 'px');
+  }
+  function schedule() {
+    if (!frame) frame = requestAnimationFrame(measure);
+  }
+  function moveControls() {
+    const themeFocused = document.activeElement === dom.theme;
+    if (mobileLayout.matches) {
+      const focusWasInDrawer = dom.chatDrawer.contains(document.activeElement);
+      dom.mobileThemeSlot.append(dom.theme);
+      dom.chatDrawer.inert = !dom.shell.classList.contains('chats-open');
+      if (focusWasInDrawer && dom.chatDrawer.inert) dom.chatsToggle.focus({ preventScroll: true });
+    } else {
+      const focusWasInDrawer = dom.chatDrawer.contains(document.activeElement);
+      setMobileChats(false, { restoreFocus: false });
+      dom.chatDrawer.inert = false;
+      if (focusWasInDrawer) dom.sidebarToggle.focus({ preventScroll: true });
+      dom.dock.insertBefore(dom.theme, dom.error);
+    }
+    if (themeFocused) dom.theme.focus({ preventScroll: true });
+    schedule();
+  }
+
+  mobileLayout.addEventListener('change', moveControls);
+  window.addEventListener('resize', schedule);
+  viewport?.addEventListener('resize', schedule);
+  viewport?.addEventListener('scroll', schedule);
+  document.addEventListener('focusin', schedule);
+  document.addEventListener('focusout', schedule);
+  moveControls();
+  initChatGestures();
+}
+
 dom.composer.addEventListener('submit', (event) => {
   event.preventDefault();
   submitQuery();
@@ -1143,14 +1278,22 @@ for (const suggestion of document.querySelectorAll('[data-prompt]')) {
 }
 
 $('#new-chat').addEventListener('click', () => switchChat(createChat()));
+$('#header-new-chat').addEventListener('click', () => switchChat(createChat()));
 $('.brand').addEventListener('click', (event) => {
   if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
   event.preventDefault();
   switchChat(createChat());
 });
-dom.chatsToggle.addEventListener('click', () => {
-  const open = dom.chatsToggle.getAttribute('aria-expanded') === 'true';
-  dom.chatsToggle.setAttribute('aria-expanded', String(!open));
+dom.chatsToggle.addEventListener('click', () => setMobileChats(true));
+dom.chatsClose.addEventListener('click', () => setMobileChats(false));
+dom.chatScrim.addEventListener('click', () => setMobileChats(false));
+dom.chatDrawer.addEventListener('keydown', (event) => {
+  if (event.key !== 'Tab' || !dom.shell.classList.contains('chats-open')) return;
+  const buttons = [...dom.chatDrawer.querySelectorAll('button:not(:disabled)')].filter((button) => button.getClientRects().length);
+  const boundary = buttons[event.shiftKey ? 0 : buttons.length - 1];
+  if (event.target !== boundary) return;
+  event.preventDefault();
+  buttons[event.shiftKey ? buttons.length - 1 : 0].focus();
 });
 dom.collectionLink.addEventListener('click', openCollection);
 dom.tabs.addEventListener('click', (event) => {
@@ -1174,9 +1317,9 @@ document.addEventListener('keydown', (event) => {
     event.preventDefault();
     open.open = false;
     $('summary', open).focus();
-  } else if (dom.chatsToggle.getAttribute('aria-expanded') === 'true') {
-    dom.chatsToggle.setAttribute('aria-expanded', 'false');
-    dom.chatsToggle.focus();
+  } else if (dom.shell.classList.contains('chats-open')) {
+    event.preventDefault();
+    setMobileChats(false);
   }
 });
 
@@ -1208,4 +1351,6 @@ dom.removeDialog.addEventListener('close', () => {
 dom.messages.append(activeChat.transcript);
 showFilterLabels();
 initTheme();
+initSidebar();
+initMobileLayout();
 restoreSession();
