@@ -31,6 +31,8 @@ type Warning struct {
 // Recommendation is the RAG answer: the mode, the strategy that actually ran,
 // the selected movies and warnings.
 type Recommendation struct {
+	Explanation  *string
+	HasMatches   *bool
 	Mode         string
 	StrategyUsed string
 	Items        []RecommendedMovie

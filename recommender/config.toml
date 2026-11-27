@@ -1,7 +1,7 @@
 [index]
 enabled_vectors = ["bm25", "transformer"]
-state_dir = ".state"
-dataset_path = "../../data/raw/TMDB 5000 Movie Dataset/tmdb_5000_movies.csv"
+state_dir = ".state-ru"
+dataset_path = "../../data/raw/TMDB 5000 Movie Dataset/tmdb_5000_movies_ru.csv"
 batch_size = 16
 
 [search]
@@ -17,7 +17,8 @@ generate_explanations = true
 [bm25]
 k1 = 1.5
 b = 0.75
-query_preparation = "llm" # "none": search English text without LLM translation
+tokenizer = "snowball-ru-en-v1"
+query_preparation = "none" # Russian corpus: preserve the original query
 
 [transformer]
 model = "intfloat/multilingual-e5-small"
@@ -28,13 +29,15 @@ local_only = false
 
 [qdrant]
 url = "http://127.0.0.1:6333"
-collection = "movies_v1"
+collection = "movies_ru_v1"
 # path = ".qdrant" # embedded Qdrant instead of the server
 
 [llm]
 enabled = true
 base_url = "https://openrouter.ai/api/v1"
-model = "google/gemma-4-26b-a4b-it:free"
+model = "deepseek/deepseek-v4-flash-0731"
+reasoning_enabled = false
+structured_outputs = true
 api_key_env = "LLM_API_KEY"
 timeout_seconds = 20
 max_output_tokens = 4096

@@ -48,12 +48,17 @@ def response_message(result: RecommendResponse) -> pb.RecommendResponse:
         if item.reason is not None:
             message.reason = item.reason
         items.append(message)
-    return pb.RecommendResponse(
+    response = pb.RecommendResponse(
         mode=result.mode,
         strategy_used=result.strategy_used,
         items=items,
         warnings=[pb.Warning(code=w.code, message=w.message) for w in result.warnings],
     )
+    if result.explanation is not None:
+        response.explanation = result.explanation
+    if result.has_matches is not None:
+        response.has_matches = result.has_matches
+    return response
 
 
 def diagnostics_message(diagnostics: RequestDiagnostics | None) -> pb.RequestDiagnostics:

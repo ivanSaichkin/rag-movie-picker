@@ -29,22 +29,33 @@ def test_candidates_before_after_and_raw_llm_trace(movies, catalog):
 
     def respond(request):
         bodies.append(json.loads(request.content))
-        return httpx.Response(200, json={"choices": [{"message": {"content": '{"items":[{"movie_id":2,"reason":"Выбран."}]}'}}]})
+        return httpx.Response(
+            200, json={"choices": [{"message": {"content": '{"movie_ids":[2],"explanation":"Выбран.","has_matches":true}'}}]}
+        )
 
     with httpx.Client(transport=httpx.MockTransport(respond)) as http:
         pipeline = Candidates(movies)
-        llm = OpenRouterClient(http, "https://example.test/v1", "test-secret", "test-model")
+        llm = OpenRouterClient(
+            http, "https://example.test/v1", "test-secret", "test-model", reasoning_enabled=False, structured_outputs=True
+        )
         service = RagService(pipeline, llm, Ready(), catalog, SearchConfig(default_strategy="transformer"))
         response = service.recommend(
             RecommendRequest(query="space", limit=1, candidate_limit=3, include_diagnostics=True), Budget.seconds(10)
         )
     assert pipeline.limit == 3
+    assert bodies[0]["reasoning"] == {"enabled": False}
+    assert bodies[0]["provider"] == {"require_parameters": True}
+    assert bodies[0]["response_format"]["type"] == "json_schema"
+    schema = bodies[0]["response_format"]["json_schema"]
+    assert schema["strict"] is True
+    assert set(schema["schema"]["required"]) == {"movie_ids", "explanation", "has_matches"}
+    assert schema["schema"]["additionalProperties"] is False
     assert [candidate.movie.movie_id for candidate in response.diagnostics.candidates] == [1, 2, 3]
     assert response.diagnostics.llm_candidate_ids == [1, 2, 3]
     assert [item.movie.movie_id for item in response.items] == [2]
     trace = response.diagnostics.llm_calls[0]
     assert json.loads(trace.request_json) == bodies[0]
-    assert json.loads(trace.attempts[0].content)["items"][0]["movie_id"] == 2
+    assert json.loads(trace.attempts[0].content)["movie_ids"][0] == 2
     assert "test-secret" not in response.diagnostics.model_dump_json()
     assert trace.attempts[0].http_status == 200
     assert response.diagnostics.timings_ms["rag_total"] >= trace.elapsed_ms > 0
@@ -120,7 +131,9 @@ def test_successful_inspection_returns_context_trimmed_candidates(movies, catalo
 
     def respond(request):
         bodies.append(json.loads(request.content))
-        return httpx.Response(200, json={"choices": [{"message": {"content": '{"items":[{"movie_id":1,"reason":"Подходит"}]}'}}]})
+        return httpx.Response(
+            200, json={"choices": [{"message": {"content": '{"movie_ids":[1],"explanation":"Подходит","has_matches":true}'}}]}
+        )
 
     with httpx.Client(transport=httpx.MockTransport(respond)) as http:
         llm = OpenRouterClient(http, "https://example.test", "secret", "model")
@@ -130,7 +143,7 @@ def test_successful_inspection_returns_context_trimmed_candidates(movies, catalo
             Ready(),
             catalog,
             SearchConfig(default_strategy="transformer"),
-            generation=LLMConfig(context_bytes=2048),
+            generation=LLMConfig(context_bytes=4096),
         )
         server = create_server(RagHandler(service, None, Ready(), catalog, 10), Ready())
         port = server.add_insecure_port("127.0.0.1:0")
@@ -142,6 +155,8 @@ def test_successful_inspection_returns_context_trimmed_candidates(movies, catalo
                 )
             assert not result.error_code
             assert result.response.mode == "generated"
+            assert result.response.HasField("explanation") and result.response.explanation == "Подходит"
+            assert result.response.HasField("has_matches") and result.response.has_matches
             assert len(result.diagnostics.candidates) == 3
             assert list(result.diagnostics.llm_candidate_ids) == [1]
             assert len(json.loads(bodies[0]["messages"][1]["content"])["candidates"]) == 1

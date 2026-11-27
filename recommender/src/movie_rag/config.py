@@ -40,9 +40,16 @@ class SearchConfig(Model):
 
 
 class BM25Config(Model):
+    tokenizer: Literal["ascii-lower-v1", "snowball-ru-en-v1"] = "ascii-lower-v1"
     k1: float = Field(default=1.5, gt=0)
     b: float = Field(default=0.75, ge=0, le=1)
     query_preparation: Literal["llm", "none"] = "llm"
+
+    @model_validator(mode="after")
+    def consistent_language(self) -> "BM25Config":
+        if self.tokenizer == "snowball-ru-en-v1" and self.query_preparation != "none":
+            raise ValueError("Russian BM25 uses the original query; set query_preparation=none")
+        return self
 
 
 class TransformerConfig(Model):
@@ -67,6 +74,8 @@ class LLMConfig(Model):
     timeout_seconds: float = Field(default=20, gt=0)
     max_output_tokens: int = Field(default=4096, ge=1)
     context_bytes: int = Field(default=24000, ge=1024)
+    reasoning_enabled: bool | None = None
+    structured_outputs: bool = False
 
 
 class ServerConfig(Model):
@@ -97,7 +106,7 @@ class AppConfig(Model):
     def index_config(self) -> dict:
         config = {"collection": self.qdrant.collection, "vectors": sorted(self.index.enabled_vectors), "format": "movie-text-v1"}
         if "bm25" in self.index.enabled_vectors:
-            config["bm25"] = {"k1": self.bm25.k1, "b": self.bm25.b, "tokenizer": "ascii-lower-v1"}
+            config["bm25"] = {"k1": self.bm25.k1, "b": self.bm25.b, "tokenizer": self.bm25.tokenizer}
         if "transformer" in self.index.enabled_vectors:
             config["transformer"] = {
                 "model": self.transformer.model,

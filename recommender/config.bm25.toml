@@ -1,19 +1,20 @@
-# Standalone BM25: no transformer, no LLM, English queries.
+# Standalone BM25: no transformer, no LLM, Russian and English stemming.
 [index]
 enabled_vectors = ["bm25"]
-state_dir = ".state-bm25"
-dataset_path = "../../data/raw/TMDB 5000 Movie Dataset/tmdb_5000_movies.csv"
+state_dir = ".state-bm25-ru"
+dataset_path = "../../data/raw/TMDB 5000 Movie Dataset/tmdb_5000_movies_ru.csv"
 
 [search]
 default_strategy = "bm25"
 generate_explanations = false
 
 [bm25]
+tokenizer = "snowball-ru-en-v1"
 query_preparation = "none"
 
 [qdrant]
-path = ".qdrant-bm25"
-collection = "movies_bm25_v2"
+path = ".qdrant-bm25-ru"
+collection = "movies_bm25_ru_v1"
 
 [llm]
 enabled = false

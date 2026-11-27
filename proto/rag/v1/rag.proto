@@ -42,6 +42,10 @@ message RecommendResponse {
   string strategy_used = 2;
   repeated Recommendation items = 3;
   repeated Warning warnings = 4;
+  // One explanation for the complete selection; legacy per-item reason remains readable.
+  optional string explanation = 5;
+  // Absent for retrieval-only results; false means items, if any, are alternatives.
+  optional bool has_matches = 6;
 }
 message GetMovieRequest { int64 movie_id = 1; }
 message GetCatalogRequest {}

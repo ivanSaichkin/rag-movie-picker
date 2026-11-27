@@ -10,12 +10,24 @@ class OpenRouterClient:
     """OpenAI-compatible JSON completion adapter; provider details stay here."""
 
     def __init__(
-        self, client: httpx.Client, base_url: str, api_key: str, model: str, timeout: float = 20, max_tokens: int = 4096
+        self,
+        client: httpx.Client,
+        base_url: str,
+        api_key: str,
+        model: str,
+        timeout: float = 20,
+        max_tokens: int = 4096,
+        *,
+        reasoning_enabled: bool | None = None,
+        structured_outputs: bool = False,
     ) -> None:
         self.client, self.url, self.key, self.model = client, base_url.rstrip("/") + "/chat/completions", api_key, model
         self.timeout, self.max_tokens = timeout, max_tokens
+        self.reasoning_enabled, self.structured_outputs = reasoning_enabled, structured_outputs
 
-    def complete_json(self, system: str, user: str, budget: Budget, *, trace: LLMCallTrace | None = None) -> dict:
+    def complete_json(
+        self, system: str, user: str, budget: Budget, *, schema: dict | None = None, trace: LLMCallTrace | None = None
+    ) -> dict:
         payload = {
             "model": self.model,
             "temperature": 0,
@@ -23,6 +35,18 @@ class OpenRouterClient:
             "response_format": {"type": "json_object"},
             "messages": [{"role": "system", "content": system}, {"role": "user", "content": user}],
         }
+        if self.structured_outputs:
+            if schema is None:
+                raise ServiceError("UNAVAILABLE", "Structured output requires a response schema")
+            payload["response_format"] = {
+                "type": "json_schema",
+                "json_schema": {"name": "response", "strict": True, "schema": schema},
+            }
+        if self.reasoning_enabled is not None:
+            payload["reasoning"] = {"enabled": self.reasoning_enabled}
+        if self.structured_outputs or self.reasoning_enabled is not None:
+            # Do not silently route to a provider that ignores the requested constraints.
+            payload["provider"] = {"require_parameters": True}
         if trace is not None:
             trace.request_json, trace.request_truncated = self._safe_text(json.dumps(payload, ensure_ascii=False))
         if not self.key or not self.model:

@@ -2,7 +2,9 @@ import math
 import re
 import threading
 from collections import Counter
+from typing import Literal
 
+import snowballstemmer
 from pydantic import Field, model_validator
 
 from movie_rag.models import Model, PreparedQuery, ServiceError, SparseVector, VectorRepresentation
@@ -10,6 +12,7 @@ from movie_rag.ports import EmbeddingModel
 
 
 class BM25State(Model):
+    tokenizer: Literal["ascii-lower-v1", "snowball-ru-en-v1"] = "ascii-lower-v1"
     vocabulary: list[str]
     df: list[int]
     n: int = Field(gt=0)
@@ -27,17 +30,28 @@ class BM25State(Model):
 
 
 class BM25Encoder:
-    def __init__(self, k1: float = 1.5, b: float = 0.75, state: BM25State | None = None) -> None:
+    def __init__(
+        self, k1: float = 1.5, b: float = 0.75, state: BM25State | None = None, tokenizer: str = "ascii-lower-v1"
+    ) -> None:
         if not math.isfinite(k1) or not math.isfinite(b) or k1 <= 0 or not 0 <= b <= 1:
             raise ValueError("Invalid BM25 parameters")
         self.k1, self.b, self.state = k1, b, state
         self._ids = {term: i for i, term in enumerate(state.vocabulary)} if state else {}
         if state:
             self.k1, self.b = state.k1, state.b
+        self.tokenizer = state.tokenizer if state else tokenizer
+        if self.tokenizer not in {"ascii-lower-v1", "snowball-ru-en-v1"}:
+            raise ValueError("Unknown tokenizer")
+        self._stemmers = {language: snowballstemmer.stemmer(language) for language in ("russian", "english")}
+        # Snowball objects have mutable working state; gRPC queries share the encoder.
+        self._tokenize_lock = threading.Lock()
 
-    @staticmethod
-    def tokenize(text: str) -> list[str]:
-        return re.findall(r"[a-z0-9]+", text.lower())
+    def tokenize(self, text: str) -> list[str]:
+        if self.tokenizer == "ascii-lower-v1":
+            return re.findall(r"[a-z0-9]+", text.lower())
+        tokens = re.findall(r"[a-z]+|[а-я]+|[0-9]+", text.lower().replace("ё", "е"))
+        with self._tokenize_lock:
+            return [self._stemmers["russian" if "а" <= token[0] <= "я" else "english"].stemWord(token) for token in tokens]
 
     def fit(self, texts: list[str]) -> None:
         documents = [self.tokenize(text) for text in texts]
@@ -47,6 +61,7 @@ class BM25Encoder:
         df = Counter(term for tokens in documents for term in set(tokens))
         vocabulary = sorted(df)
         self.state = BM25State(
+            tokenizer=self.tokenizer,
             vocabulary=vocabulary,
             df=[df[t] for t in vocabulary],
             n=len(documents),

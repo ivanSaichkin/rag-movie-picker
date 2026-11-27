@@ -385,3 +385,17 @@ func TestRecommendKeepsAbsentOptionalFields(t *testing.T) {
 		t.Fatal("filters must always be sent")
 	}
 }
+
+func TestRecommendationSummaryAndFalsePresence(t *testing.T) {
+	server := &fakeRAGServer{recommend: &ragv1.RecommendResponse{
+		Mode: "generated", StrategyUsed: "hybrid",
+		Explanation: proto.String("Точных совпадений нет. Вот альтернативы."), HasMatches: proto.Bool(false),
+	}}
+	response, err := newTestClient(t, server, testTimeout).Recommend(context.Background(), models.RecommendationRequest{Query: "test"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if response.Explanation == nil || *response.Explanation == "" || response.HasMatches == nil || *response.HasMatches {
+		t.Fatalf("summary or explicit false lost: %+v", response)
+	}
+}

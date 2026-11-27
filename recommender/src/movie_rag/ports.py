@@ -22,6 +22,10 @@ class EmbeddingModel(Protocol):
     def encode_query(self, text: str) -> VectorRepresentation: ...
 
 
+class TitleLookup(Protocol):
+    def find(self, title: str, filters: Filters) -> list[Movie]: ...
+
+
 class DenseEmbeddingModel(EmbeddingModel, Protocol):
     dimension: int
     max_length: int
@@ -36,7 +40,9 @@ class VectorStore(Protocol):
 
 
 class LLMClient(Protocol):
-    def complete_json(self, system: str, user: str, budget: Budget, *, trace: LLMCallTrace | None = None) -> dict: ...
+    def complete_json(
+        self, system: str, user: str, budget: Budget, *, schema: dict | None = None, trace: LLMCallTrace | None = None
+    ) -> dict: ...
 
 
 class Readiness(Protocol):

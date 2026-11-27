@@ -61,6 +61,7 @@ def test_import_idempotent_and_manifest_guard(tmp_path):
         # Adding a runtime-only catalog field must not invalidate an existing v2 index.
         legacy = json.loads(manifest_path.read_text(encoding="utf-8"))
         legacy["catalog"].pop("max_candidates", None)
+        legacy["bm25"].pop("tokenizer", None)
         manifest_path.write_text(json.dumps(legacy), encoding="utf-8")
         assert load_manifest(manifest_path, settings).index_id == manifest.index_id
         tampered = json.loads(manifest_path.read_text(encoding="utf-8"))

@@ -176,6 +176,8 @@ class RecommendResponse(Model):
     items: list[Recommendation] = Field(default_factory=list)
     warnings: list[Warning] = Field(default_factory=list)
     diagnostics: RequestDiagnostics | None = None
+    explanation: str | None = None
+    has_matches: bool | None = None
 
 
 class Catalog(Model):

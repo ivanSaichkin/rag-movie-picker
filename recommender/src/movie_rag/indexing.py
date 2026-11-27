@@ -30,6 +30,8 @@ class Manifest(Model):
             raise ValueError("BM25 statistics do not match the schema")
         if self.bm25 and self.catalog.movie_count != self.bm25.n:
             raise ValueError("Corpus count mismatch")
+        if self.bm25 and self.bm25.tokenizer != self.config.get("bm25", {}).get("tokenizer"):
+            raise ValueError("BM25 tokenizer does not match the index configuration")
         if ("transformer" in self.vector_schema.enabled_vectors) != (self.max_length is not None):
             raise ValueError("Transformer metadata do not match the schema")
         return self
@@ -38,6 +40,9 @@ class Manifest(Model):
         data = self.model_dump(exclude={"index_id", "status", "truncated_documents"})
         # Runtime candidate limits do not change indexed content or invalidate existing v2 manifests.
         data["catalog"].pop("max_candidates", None)
+        # Keep fingerprints of existing English v2 indexes stable.
+        if data["bm25"] and data["bm25"]["tokenizer"] == "ascii-lower-v1":
+            data["bm25"].pop("tokenizer")
         return hashlib.sha256(json.dumps(data, sort_keys=True, ensure_ascii=False).encode()).hexdigest()
 
 
@@ -89,7 +94,7 @@ def import_index(settings: AppConfig, store: IndexStore, dense: DenseEmbeddingMo
     texts = [formatter.format(movie) for movie in movies]
     sparse = None
     if "bm25" in settings.index.enabled_vectors:
-        sparse = BM25Encoder(settings.bm25.k1, settings.bm25.b)
+        sparse = BM25Encoder(settings.bm25.k1, settings.bm25.b, tokenizer=settings.bm25.tokenizer)
         sparse.fit(texts)
     genres = {genre.id: genre for movie in movies for genre in movie.genres}
     years = [movie.year for movie in movies if movie.year is not None]

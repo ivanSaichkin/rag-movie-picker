@@ -48,3 +48,17 @@ def test_hybrid_batch():
 def test_sparse_validation():
     with pytest.raises(ValidationError):
         SparseVector(indices=[1, 1], values=[1.0, 2.0])
+
+
+def test_bilingual_stemming_roundtrip_and_document_frequency():
+    encoder = BM25Encoder(tokenizer="snowball-ru-en-v1")
+    encoder.fit(["Фильмы о космонавтах movies", "фильм о космонавте movie", "ёлка"])
+    assert encoder.tokenize("ФИЛЬМЫ MOVIES ёлки") == encoder.tokenize("фильм movie елка")
+    assert encoder.state.df[encoder.state.vocabulary.index(encoder.tokenize("космонавт")[0])] == 2
+    restored = BM25Encoder(state=BM25State.model_validate_json(encoder.state.model_dump_json()))
+    assert restored.encode_query("космонавтом movies") == encoder.encode_query("космонавты movie")
+    assert restored.encode_query("космонавт").sparse.indices
+
+
+def test_legacy_tokenization_unchanged():
+    assert BM25Encoder().tokenize("MOVIES фильм 2001") == ["movies", "2001"]

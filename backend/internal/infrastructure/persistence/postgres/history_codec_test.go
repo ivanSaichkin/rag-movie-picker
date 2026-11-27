@@ -139,3 +139,25 @@ func TestDecodeStoredDataRejectsCorruptedJSON(t *testing.T) {
 		t.Fatal("decodeStoredResponse() must fail on broken JSON")
 	}
 }
+
+func TestStoredSummaryAndFalseMatchStatus(t *testing.T) {
+	explanation, hasMatches := "Точных совпадений нет. Предлагаем альтернативы.", false
+	raw, err := encodeStoredResponse(models.Recommendation{Mode: "generated", Explanation: &explanation, HasMatches: &hasMatches})
+	if err != nil {
+		t.Fatal(err)
+	}
+	decoded, err := decodeStoredResponse(raw)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if decoded.Explanation == nil || *decoded.Explanation != explanation || decoded.HasMatches == nil || *decoded.HasMatches {
+		t.Fatalf("summary lost in history: %+v", decoded)
+	}
+	legacy, err := decodeStoredResponse([]byte(`{"mode":"retrieval_only","items":[],"warnings":[]}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if legacy.Explanation != nil || legacy.HasMatches != nil {
+		t.Fatal("legacy history must retain absent fields")
+	}
+}

@@ -50,6 +50,8 @@ type RecommendationItem struct {
 
 // StoredRecommendation is the search answer that is also kept in the history.
 type StoredRecommendation struct {
+	Explanation  *string              `json:"explanation,omitempty"`
+	HasMatches   *bool                `json:"has_matches,omitempty"`
 	Mode         string               `json:"mode"`
 	StrategyUsed string               `json:"strategy_used"`
 	Items        []RecommendationItem `json:"items"`
@@ -87,6 +89,8 @@ func newStoredRecommendation(response models.Recommendation) StoredRecommendatio
 
 	return StoredRecommendation{
 		Mode:         response.Mode,
+		Explanation:  response.Explanation,
+		HasMatches:   response.HasMatches,
 		StrategyUsed: response.StrategyUsed,
 		Items:        items,
 		Warnings:     warnings,

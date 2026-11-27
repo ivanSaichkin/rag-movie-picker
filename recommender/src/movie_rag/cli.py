@@ -17,6 +17,7 @@ from movie_rag.ports import DenseEmbeddingModel, IndexStore
 from movie_rag.retrieval import RetrievalPipeline
 from movie_rag.service import RagService
 from movie_rag.storage import QdrantStore
+from movie_rag.title_lookup import CatalogTitleLookup
 from movie_rag.transport import RagHandler, create_server
 
 
@@ -78,10 +79,13 @@ def serve(
         llm.model,
         llm.timeout_seconds,
         llm.max_output_tokens,
+        reasoning_enabled=llm.reasoning_enabled,
+        structured_outputs=llm.structured_outputs,
     )
     sparse = BM25Encoder(state=manifest.bm25) if manifest.bm25 is not None else None
     pipeline = RetrievalPipeline(sparse, dense, store, settings.search.rrf_k)
-    service = RagService(pipeline, adapter, readiness, catalog, settings.search, settings.bm25, settings.llm)
+    titles = CatalogTitleLookup.from_csv(settings.index.dataset_path, manifest.csv_sha256)
+    service = RagService(pipeline, adapter, readiness, catalog, settings.search, settings.bm25, settings.llm, titles)
     server = create_server(
         RagHandler(service, store, readiness, catalog, settings.server.request_timeout_seconds),
         readiness,

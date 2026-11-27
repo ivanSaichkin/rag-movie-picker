@@ -267,8 +267,7 @@ function renderMovie(movie, index) {
   ].filter(Boolean).join(' · ');
   const details = element('details', 'movie-details');
   const overview = element('p', 'movie-overview', movie.overview);
-  overview.lang = 'en';
-  details.append(element('summary', '', 'О фильме · описание на английском'), overview);
+  details.append(element('summary', '', 'О фильме'), overview);
   content.append(top);
   if (meta) content.append(element('p', 'movie-meta', meta));
   if (movie.reason) content.append(element('p', 'movie-reason', movie.reason));
@@ -279,16 +278,20 @@ function renderMovie(movie, index) {
 
 function renderResponse(response) {
   const message = assistantMessage();
-  if (!response.items.length) {
-    message.append(element('p', 'assistant-text', 'Подходящих фильмов не найдено. Попробуйте уточнить запрос или смягчить фильтры.'));
-  } else {
-    message.append(element('p', 'assistant-text', response.mode === 'generated' ? 'Подборка с объяснениями LLM' : 'Результаты поиска'));
+  if (response.has_matches === false && response.items.length) {
+    message.append(element('p', 'result-note', 'Альтернативы · точных совпадений не найдено'));
+  }
+  const summary = response.explanation || (response.has_matches === false && response.items.length
+    ? 'Точных совпадений не найдено. Ниже — альтернативы.'
+    : response.items.length ? 'Результаты поиска' : 'Подходящих фильмов не найдено. Попробуйте уточнить запрос или фильтры.');
+  message.append(element('p', 'assistant-text', summary));
+  if (response.items.length) {
     const list = element('div', 'movie-list');
     response.items.forEach((movie, index) => list.append(renderMovie(movie, index)));
     message.append(list);
   }
   for (const warning of response.warnings || []) {
-    if (warning.code !== 'NO_MATCHES') message.append(element('p', 'result-note', warning.message));
+    if (!['NO_MATCHES', 'NO_RELEVANT_MATCHES'].includes(warning.code)) message.append(element('p', 'result-note', warning.message));
   }
   return message;
 }

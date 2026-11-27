@@ -202,3 +202,16 @@ func TestRecommendationRequiresAuthentication(t *testing.T) {
 	engine.ServeHTTP(recorder, httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/recommendations", strings.NewReader(`{"query":"космос"}`)))
 	testutils.RequireStatus(t, recorder, http.StatusUnauthorized)
 }
+
+func TestRecommendationReturnsSelectionExplanation(t *testing.T) {
+	result := sampleRecommendationResult()
+	explanation, hasMatches := "Точного совпадения нет; вот альтернативы.", false
+	result.Response.Explanation, result.Response.HasMatches = &explanation, &hasMatches
+	engine := newRecommendationEngine(&fakeRecommendationService{result: result})
+	recorder := testutils.Perform(t, engine, http.MethodPost, "/recommendations", strings.NewReader(`{"query":"test"}`), jsonWithAuth())
+	testutils.RequireStatus(t, recorder, http.StatusOK)
+	response := testutils.DecodeJSON[dto.RecommendationResponse](t, recorder)
+	if response.Explanation == nil || *response.Explanation != explanation || response.HasMatches == nil || *response.HasMatches {
+		t.Fatalf("summary lost in HTTP response: %+v", response)
+	}
+}

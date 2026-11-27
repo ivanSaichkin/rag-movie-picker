@@ -12,6 +12,7 @@ dependencies = [
   "pydantic>=2.12,<3",
   "python-dotenv>=1.2,<2",
   "filelock>=3.20,<4",
+  "snowballstemmer>=3,<4",
 ]
 
 [project.optional-dependencies]

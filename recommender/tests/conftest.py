@@ -60,7 +60,7 @@ class ScriptedLLM:
         self.replies = list(replies)
         self.calls = []
 
-    def complete_json(self, system, user, budget, *, trace=None):
+    def complete_json(self, system, user, budget, *, schema=None, trace=None):
         budget.remaining()
         self.calls.append((system, user))
         reply = self.replies.pop(0)

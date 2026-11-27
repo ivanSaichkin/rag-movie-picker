@@ -29,6 +29,8 @@ type storedWarning struct {
 }
 
 type storedResponse struct {
+	Explanation  *string         `json:"explanation,omitempty"`
+	HasMatches   *bool           `json:"has_matches,omitempty"`
 	Mode         string          `json:"mode"`
 	StrategyUsed string          `json:"strategy_used"`
 	Items        []storedItem    `json:"items"`
@@ -105,6 +107,8 @@ func storedResponseFromModel(response models.Recommendation) storedResponse {
 
 	return storedResponse{
 		Mode:         response.Mode,
+		Explanation:  response.Explanation,
+		HasMatches:   response.HasMatches,
 		StrategyUsed: response.StrategyUsed,
 		Items:        items,
 		Warnings:     warnings,
@@ -127,6 +131,8 @@ func storedResponseToModel(response storedResponse) models.Recommendation {
 
 	return models.Recommendation{
 		Mode:         response.Mode,
+		Explanation:  response.Explanation,
+		HasMatches:   response.HasMatches,
 		StrategyUsed: response.StrategyUsed,
 		Items:        items,
 		Warnings:     warnings,

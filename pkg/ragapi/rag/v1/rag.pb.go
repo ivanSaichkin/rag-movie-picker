@@ -431,11 +431,15 @@ func (x *Warning) GetMessage() string {
 }
 
 type RecommendResponse struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Mode          string                 `protobuf:"bytes,1,opt,name=mode,proto3" json:"mode,omitempty"`
-	StrategyUsed  string                 `protobuf:"bytes,2,opt,name=strategy_used,json=strategyUsed,proto3" json:"strategy_used,omitempty"`
-	Items         []*Recommendation      `protobuf:"bytes,3,rep,name=items,proto3" json:"items,omitempty"`
-	Warnings      []*Warning             `protobuf:"bytes,4,rep,name=warnings,proto3" json:"warnings,omitempty"`
+	state        protoimpl.MessageState `protogen:"open.v1"`
+	Mode         string                 `protobuf:"bytes,1,opt,name=mode,proto3" json:"mode,omitempty"`
+	StrategyUsed string                 `protobuf:"bytes,2,opt,name=strategy_used,json=strategyUsed,proto3" json:"strategy_used,omitempty"`
+	Items        []*Recommendation      `protobuf:"bytes,3,rep,name=items,proto3" json:"items,omitempty"`
+	Warnings     []*Warning             `protobuf:"bytes,4,rep,name=warnings,proto3" json:"warnings,omitempty"`
+	// One explanation for the complete selection; legacy per-item reason remains readable.
+	Explanation *string `protobuf:"bytes,5,opt,name=explanation,proto3,oneof" json:"explanation,omitempty"`
+	// Absent for retrieval-only results; false means items, if any, are alternatives.
+	HasMatches    *bool `protobuf:"varint,6,opt,name=has_matches,json=hasMatches,proto3,oneof" json:"has_matches,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -496,6 +500,20 @@ func (x *RecommendResponse) GetWarnings() []*Warning {
 		return x.Warnings
 	}
 	return nil
+}
+
+func (x *RecommendResponse) GetExplanation() string {
+	if x != nil && x.Explanation != nil {
+		return *x.Explanation
+	}
+	return ""
+}
+
+func (x *RecommendResponse) GetHasMatches() bool {
+	if x != nil && x.HasMatches != nil {
+		return *x.HasMatches
+	}
+	return false
 }
 
 type GetMovieRequest struct {
@@ -1107,12 +1125,17 @@ const file_rag_v1_rag_proto_rawDesc = "" +
 	"\a_reason\"7\n" +
 	"\aWarning\x12\x12\n" +
 	"\x04code\x18\x01 \x01(\tR\x04code\x12\x18\n" +
-	"\amessage\x18\x02 \x01(\tR\amessage\"\xa7\x01\n" +
+	"\amessage\x18\x02 \x01(\tR\amessage\"\x94\x02\n" +
 	"\x11RecommendResponse\x12\x12\n" +
 	"\x04mode\x18\x01 \x01(\tR\x04mode\x12#\n" +
 	"\rstrategy_used\x18\x02 \x01(\tR\fstrategyUsed\x12,\n" +
 	"\x05items\x18\x03 \x03(\v2\x16.rag.v1.RecommendationR\x05items\x12+\n" +
-	"\bwarnings\x18\x04 \x03(\v2\x0f.rag.v1.WarningR\bwarnings\",\n" +
+	"\bwarnings\x18\x04 \x03(\v2\x0f.rag.v1.WarningR\bwarnings\x12%\n" +
+	"\vexplanation\x18\x05 \x01(\tH\x00R\vexplanation\x88\x01\x01\x12$\n" +
+	"\vhas_matches\x18\x06 \x01(\bH\x01R\n" +
+	"hasMatches\x88\x01\x01B\x0e\n" +
+	"\f_explanationB\x0e\n" +
+	"\f_has_matches\",\n" +
 	"\x0fGetMovieRequest\x12\x19\n" +
 	"\bmovie_id\x18\x01 \x01(\x03R\amovieId\"\x13\n" +
 	"\x11GetCatalogRequest\"\xfa\x02\n" +
@@ -1250,6 +1273,7 @@ func file_rag_v1_rag_proto_init() {
 	file_rag_v1_rag_proto_msgTypes[1].OneofWrappers = []any{}
 	file_rag_v1_rag_proto_msgTypes[3].OneofWrappers = []any{}
 	file_rag_v1_rag_proto_msgTypes[4].OneofWrappers = []any{}
+	file_rag_v1_rag_proto_msgTypes[6].OneofWrappers = []any{}
 	file_rag_v1_rag_proto_msgTypes[9].OneofWrappers = []any{}
 	file_rag_v1_rag_proto_msgTypes[11].OneofWrappers = []any{}
 	type x struct{}

@@ -187,6 +187,8 @@ func recommendationFromProto(response *ragv1.RecommendResponse) models.Recommend
 
 	return models.Recommendation{
 		Mode:         response.GetMode(),
+		Explanation:  response.Explanation,
+		HasMatches:   response.HasMatches,
 		StrategyUsed: response.GetStrategyUsed(),
 		Items:        items,
 		Warnings:     warnings,
