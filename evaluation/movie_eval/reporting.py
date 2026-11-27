@@ -23,7 +23,7 @@ CONFIG_FIELDS = {
         "rrf_k",
         "generate_explanations",
     ],
-    "bm25": ["k1", "b", "query_preparation"],
+    "bm25": ["k1", "b", "query_preparation", "tokenizer"],
     "transformer": ["model", "revision", "device", "batch_size", "local_only"],
     "qdrant": ["url", "path", "collection"],
     "llm": [
@@ -33,6 +33,8 @@ CONFIG_FIELDS = {
         "timeout_seconds",
         "max_output_tokens",
         "context_bytes",
+        "reasoning_enabled",
+        "structured_outputs",
     ],
     "server": ["address", "workers", "request_timeout_seconds"],
 }
@@ -95,6 +97,8 @@ def environment_snapshot(repo: Path) -> dict:
 
 
 def summarize(records: Sequence[dict], wall_seconds: float, catalog_count: int) -> dict:
+    ordinary = [record for record in records if record.get("kind", "normal") == "normal"]
+    traps = [record for record in records if record.get("kind") == "trap"]
     successful = [record for record in records if record["status"] == "OK"]
     latency = [record["latency_ms"] for record in successful]
     all_latency = [record["latency_ms"] for record in records]
@@ -112,13 +116,17 @@ def summarize(records: Sequence[dict], wall_seconds: float, catalog_count: int) 
         "hit_at_k": "hit_rate_at_k",
     }
     metrics = {
-        metric_labels.get(name, name): fmean(record["metrics"][name] for record in records) if records else 0.0
+        metric_labels.get(name, name): fmean(record["metrics"][name] for record in ordinary) if ordinary else 0.0
         for name in metric_names
     }
     unique_ids = {
         item["movie_id"] for record in successful for item in record["items"] if item["movie_id"] not in record["invalid_ids"]
     }
     return {
+        "ordinary_requests": len(ordinary),
+        "trap_requests": len(traps),
+        "correct_rejection_rate": fmean(record["correct_rejection"] for record in traps) if traps else None,
+        "ranking_population": "ordinary queries only; failed ordinary requests count as zero",
         "requests": len(records),
         "successes": len(successful),
         "errors": len(records) - len(successful),

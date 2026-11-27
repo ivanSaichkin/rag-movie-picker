@@ -44,6 +44,8 @@ class GoldenQuery:
     query_ru: str
     filters: MovieFilters
     judgments: tuple[Judgment, ...]
+    kind: str = "normal"
+    expected_answer: str = ""
 
 
 @dataclass(frozen=True)
@@ -102,11 +104,20 @@ def load_goldenset(path: Path, catalog: dict[int, CatalogMovie]) -> list[GoldenQ
                     raise ValueError("query must be a non-empty string")
                 filters = MovieFilters.from_dict(raw.get("filters", {}))
                 judgments = tuple(_judgment(item, catalog, filters) for item in raw["relevant_movies"])
-                if not judgments or len({item.movie_id for item in judgments}) != len(judgments):
-                    raise ValueError("Empty or duplicate movie judgments")
-                if not any(item.relevance >= 2 for item in judgments):
+                kind = raw.get("kind", "normal")
+                if kind not in {"normal", "trap"}:
+                    raise ValueError("Unknown question kind")
+                if len({item.movie_id for item in judgments}) != len(judgments):
+                    raise ValueError("Duplicate movie judgments")
+                if kind == "normal" and not any(item.relevance >= 2 for item in judgments):
                     raise ValueError("Query needs at least one relevant movie")
-                cases.append(GoldenQuery(identifier, query, raw.get("query_ru", ""), filters, judgments))
+                if kind == "trap" and (judgments or not raw.get("expected_answer")):
+                    raise ValueError("Trap must have no relevant movies and must specify expected rejection")
+                cases.append(
+                    GoldenQuery(
+                        identifier, query, raw.get("query_ru", ""), filters, judgments, kind, raw.get("expected_answer", "")
+                    )
+                )
                 identifiers.add(identifier)
             except (KeyError, TypeError, ValueError) as error:
                 raise ValueError(f"Invalid golden set line {line_number}: {error}") from error

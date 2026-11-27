@@ -54,6 +54,8 @@ def parse_arguments(argv: list[str] | None = None) -> argparse.Namespace:
     )
     parser.add_argument("--timeout", type=float, default=60)
     parser.add_argument("--seed", type=int, default=42)
+    parser.add_argument("--disable-llm", action="store_true", help="Disable all LLM calls, including query translation")
+    parser.add_argument("--inspect", action="store_true", help="Save prompts, provider usage, raw responses and server timings")
     parser.add_argument(
         "--generate-explanations",
         action="store_true",
@@ -65,6 +67,10 @@ def parse_arguments(argv: list[str] | None = None) -> argparse.Namespace:
         help="Allow load mode when LLM is enabled in the local config",
     )
     args = parser.parse_args(argv)
+    if args.inspect and args.mode in {"load", "all"}:
+        parser.error("--inspect is for quality runs only; diagnostic serialization affects load timings")
+    if args.disable_llm and args.generate_explanations:
+        parser.error("--disable-llm conflicts with --generate-explanations")
     if not 1 <= args.k <= 1000 or not 1 <= args.repeats <= 100 or not 1 <= args.requests <= 10000:
         parser.error("Use k=1..1000, repeats=1..100, requests=1..10000")
     if not 0 <= args.warmup <= 100 or not 0 < args.timeout <= 300 or any(not 1 <= n <= 64 for n in args.concurrency):
@@ -103,6 +109,25 @@ def score_response(record: dict, case: GoldenQuery, catalog: dict[int, CatalogMo
     metrics = ranking_metrics(ids, judgments, k, invalid_ids=frozenset(invalid))
     return {
         **record,
+        "kind": case.kind,
+        "expected_answer": case.expected_answer,
+        "correct_rejection": (
+            record.get("status") == "OK"
+            and not any(w["code"] == "GENERATION_UNAVAILABLE" for w in record.get("warnings", []))
+            and (
+                (record.get("mode") == "empty" and not ids and any(w["code"] == "NO_MATCHES" for w in record.get("warnings", [])))
+                or (
+                    record.get("has_matches") is False
+                    and bool(record.get("explanation"))
+                    and not invalid
+                    and len(ids) == len(set(ids))
+                    and len(ids) <= k
+                    and any(w["code"] == "NO_RELEVANT_MATCHES" for w in record.get("warnings", []))
+                )
+            )
+        )
+        if case.kind == "trap"
+        else None,
         "metrics": metrics,
         "invalid_ids": sorted(invalid),
         "duplicate_count": len(ids) - len(set(ids)),
@@ -186,6 +211,9 @@ def export_summary(path: Path, summaries: list[dict]) -> None:
                 "degraded_requests",
                 "catalog_coverage",
                 "mean_fill_rate",
+                "correct_rejection_rate",
+                "ordinary_requests",
+                "trap_requests",
             ]
         }
         row.update(summary["metrics_including_failed_requests_as_zero"])
@@ -221,7 +249,12 @@ def run_benchmark(args, client_factory=RecommenderClient) -> Path | None:
     if args.mode == "validate":
         print(f"Validated {len(cases)} queries, {sum(len(case.judgments) for case in cases)} judgments, {len(catalog)} movies.")
         return None
-    if args.mode in {"load", "all"} and config.get("llm", {}).get("enabled", True) and not args.allow_llm_load:
+    if (
+        args.mode in {"load", "all"}
+        and config.get("llm", {}).get("enabled", True)
+        and not args.allow_llm_load
+        and not args.disable_llm
+    ):
         raise ValueError("Load mode requires llm.enabled=false or explicit --allow-llm-load")
     directory = create_run_directory(args.output_dir.resolve())
     snapshot = config_snapshot(args.config)
@@ -253,6 +286,8 @@ def run_benchmark(args, client_factory=RecommenderClient) -> Path | None:
         args.address or config.get("server", {}).get("address", "127.0.0.1:50051"),
         args.timeout,
     )
+    client.disable_llm = args.disable_llm
+    client.inspect = args.inspect
     summaries = []
     try:
         remote = client.catalog()
@@ -300,6 +335,25 @@ def run_benchmark(args, client_factory=RecommenderClient) -> Path | None:
         write_json(directory / "metadata.json", metadata)
         write_json(directory / "summary.json", {"stages": summaries})
         export_summary(directory / "summary.csv", summaries)
+        requests_path = directory / "requests.jsonl"
+        if requests_path.exists():
+            with (directory / "answer_review.jsonl").open("w", encoding="utf-8") as review:
+                for line in requests_path.read_text(encoding="utf-8").splitlines():
+                    record = json.loads(line)
+                    if record["phase"] == "quality" and record.get("kind", "normal") == "normal":
+                        review.write(
+                            json.dumps(
+                                {
+                                    "query_id": record["query_id"],
+                                    "strategy": record["requested_strategy"],
+                                    "sequence": record["sequence"],
+                                    "answer_correct": None,
+                                    "comment": "",
+                                },
+                                ensure_ascii=False,
+                            )
+                            + "\n"
+                        )
         print(f"Results: {directory}", flush=True)
     return directory
 

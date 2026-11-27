@@ -79,9 +79,12 @@ class GoldenSetTests(unittest.TestCase):
         cls.cases = load_goldenset(DEFAULT_GOLDENSET, cls.catalog)
 
     def test_golden_set_shape(self):
-        self.assertEqual(len(self.cases), 6)
-        self.assertEqual(sum(len(case.judgments) for case in self.cases), 78)
-        self.assertTrue(all(10 <= len(case.judgments) <= 20 for case in self.cases))
+        ordinary = [case for case in self.cases if case.kind == "normal"]
+        traps = [case for case in self.cases if case.kind == "trap"]
+        self.assertEqual(len(ordinary), 10)
+        self.assertEqual(len(traps), 5)
+        self.assertTrue(all(10 <= len(case.judgments) <= 20 for case in ordinary))
+        self.assertTrue(all(not case.judgments and case.expected_answer for case in traps))
 
     def test_unknown_ids_and_wrong_titles_rejected(self):
         raw = json.loads(DEFAULT_GOLDENSET.read_text(encoding="utf-8").splitlines()[0])
@@ -208,7 +211,7 @@ class GoldenSetTests(unittest.TestCase):
                     all(stage["metrics_including_failed_requests_as_zero"]["ndcg_at_k"] == 1 for stage in summary["stages"])
                 )
                 records = (directory / "requests.jsonl").read_text(encoding="utf-8").splitlines()
-                self.assertEqual(len(records), 54)
+                self.assertEqual(len(records), 81)
                 self.assertTrue((directory / "summary.csv").exists())
         finally:
             server.stop(0).wait()
