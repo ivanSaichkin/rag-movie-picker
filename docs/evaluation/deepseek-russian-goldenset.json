@@ -1,0 +1,275 @@
+{
+  "source_run": "run_6",
+  "started_utc": "2026-11-27T19:23:56.532647+00:00",
+  "status": "completed",
+  "source_base_commit": "40ab298042599721b17eedfbfe508223f6680039",
+  "source_had_uncommitted_changes": true,
+  "dataset_sha256": "487b0d0b33904757320008a8a0f58933d8ca3da09042042398d2f52e5bd40bd9",
+  "goldenset_sha256": "468828fbe4410a7f3dbab97530b815a810f3c660a4daf246f08333645780b4e5",
+  "movie_count": 4799,
+  "ordinary_queries": 10,
+  "trap_queries": 5,
+  "relevance_judgments": 121,
+  "k": 10,
+  "candidate_limit_before_context": 30,
+  "repeats": 1,
+  "warmup_per_strategy": 1,
+  "seed": 42,
+  "transport": "gRPC InspectRecommendation",
+  "measurement": "quality only; latency includes diagnostics; warmup excluded",
+  "config": {
+    "search": {
+      "default_strategy": "hybrid",
+      "default_results": 10,
+      "max_results": 50,
+      "candidate_multiplier": 3,
+      "min_candidates": 30,
+      "max_candidates": 1000,
+      "rrf_k": 60,
+      "generate_explanations": true
+    },
+    "bm25": {
+      "k1": 1.5,
+      "b": 0.75,
+      "query_preparation": "none",
+      "tokenizer": "snowball-ru-en-v1"
+    },
+    "transformer": {
+      "model": "intfloat/multilingual-e5-small",
+      "revision": "614241f622f53c4eeff9890bdc4f31cfecc418b3",
+      "device": "cpu",
+      "batch_size": 16,
+      "local_only": false
+    },
+    "llm": {
+      "enabled": true,
+      "base_url": "https://openrouter.ai/api/v1",
+      "model": "deepseek/deepseek-v4-flash-0731",
+      "timeout_seconds": 20,
+      "max_output_tokens": 4096,
+      "context_bytes": 24000,
+      "reasoning_enabled": false,
+      "structured_outputs": true
+    }
+  },
+  "costs": {
+    "requests": {
+      "rpc_requests": 45,
+      "http_attempts": 39,
+      "cost_usd": 0.02123438836,
+      "reasoning_tokens": 0
+    },
+    "warmup": {
+      "rpc_requests": 3,
+      "http_attempts": 3,
+      "cost_usd": 0.001343625496,
+      "reasoning_tokens": 0
+    }
+  },
+  "stages": [
+    {
+      "ordinary_requests": 10,
+      "trap_requests": 5,
+      "correct_rejection_rate": 1.0,
+      "ranking_population": "ordinary queries only; failed ordinary requests count as zero",
+      "requests": 15,
+      "successes": 15,
+      "errors": 0,
+      "error_rate": 0.0,
+      "wall_seconds": 30.50656709994655,
+      "completed_requests_per_second": 0.49169740898268033,
+      "successful_requests_per_second": 0.49169740898268033,
+      "success_latency_ms": {
+        "mean": 2033.5687800000112,
+        "p50": 2240.940999938175,
+        "p95": 3255.404770001769,
+        "p99": 3308.45295406878,
+        "max": 3321.7150000855327
+      },
+      "all_attempt_latency_ms": {
+        "p50": 2240.940999938175,
+        "p95": 3255.404770001769,
+        "p99": 3308.45295406878
+      },
+      "status_counts": {
+        "OK": 15
+      },
+      "strategy_used_counts": {
+        "bm25": 15
+      },
+      "mode_counts": {
+        "generated": 11,
+        "empty": 4
+      },
+      "warning_counts": {
+        "CONTEXT_LIMIT": 13,
+        "NO_MATCHES": 4,
+        "NO_RELEVANT_MATCHES": 3,
+        "FEWER_RESULTS": 5
+      },
+      "degraded_requests": 0,
+      "invalid_filter_or_unknown_id_count": 0,
+      "duplicate_result_count": 0,
+      "over_limit_count": 0,
+      "mean_fill_rate": 0.6133333333333333,
+      "catalog_coverage": 0.019170660554282144,
+      "metrics_including_failed_requests_as_zero": {
+        "ndcg_at_k": 0.4341036592996523,
+        "map_at_k": 0.32034920634920633,
+        "precision_at_k": 0.36,
+        "recall_at_k": 0.30399891774891774,
+        "mrr_at_k": 0.75,
+        "hit_rate_at_k": 1.0
+      },
+      "phase": "quality",
+      "requested_strategy": "bm25",
+      "concurrency": 1,
+      "retrieval_top_k_metrics": {
+        "ndcg_at_k": 0.27004648376991836,
+        "ap_at_k": 0.15090873015873016,
+        "precision_at_k": 0.25,
+        "recall_at_k": 0.21194805194805194,
+        "reciprocal_rank_at_k": 0.5308333333333334,
+        "hit_at_k": 0.9
+      }
+    },
+    {
+      "ordinary_requests": 10,
+      "trap_requests": 5,
+      "correct_rejection_rate": 1.0,
+      "ranking_population": "ordinary queries only; failed ordinary requests count as zero",
+      "requests": 15,
+      "successes": 15,
+      "errors": 0,
+      "error_rate": 0.0,
+      "wall_seconds": 31.759484500042163,
+      "completed_requests_per_second": 0.4722998573852824,
+      "successful_requests_per_second": 0.4722998573852824,
+      "success_latency_ms": {
+        "mean": 2117.1100133564323,
+        "p50": 2190.0024000788108,
+        "p95": 3616.8854600284253,
+        "p99": 3946.161091988906,
+        "max": 4028.4799999790266
+      },
+      "all_attempt_latency_ms": {
+        "p50": 2190.0024000788108,
+        "p95": 3616.8854600284253,
+        "p99": 3946.161091988906
+      },
+      "status_counts": {
+        "OK": 15
+      },
+      "strategy_used_counts": {
+        "transformer": 15
+      },
+      "mode_counts": {
+        "generated": 11,
+        "empty": 4
+      },
+      "warning_counts": {
+        "CONTEXT_LIMIT": 13,
+        "FEWER_RESULTS": 8,
+        "NO_MATCHES": 4,
+        "NO_RELEVANT_MATCHES": 3
+      },
+      "degraded_requests": 0,
+      "invalid_filter_or_unknown_id_count": 0,
+      "duplicate_result_count": 0,
+      "over_limit_count": 0,
+      "mean_fill_rate": 0.5933333333333334,
+      "catalog_coverage": 0.01854553031881642,
+      "metrics_including_failed_requests_as_zero": {
+        "ndcg_at_k": 0.3966146360508166,
+        "map_at_k": 0.26466666666666666,
+        "precision_at_k": 0.31,
+        "recall_at_k": 0.27056277056277056,
+        "mrr_at_k": 0.72,
+        "hit_rate_at_k": 0.9
+      },
+      "phase": "quality",
+      "requested_strategy": "transformer",
+      "concurrency": 1,
+      "retrieval_top_k_metrics": {
+        "ndcg_at_k": 0.24893051784523967,
+        "ap_at_k": 0.12316666666666666,
+        "precision_at_k": 0.22,
+        "recall_at_k": 0.19385281385281386,
+        "reciprocal_rank_at_k": 0.495,
+        "hit_at_k": 0.8
+      }
+    },
+    {
+      "ordinary_requests": 10,
+      "trap_requests": 5,
+      "correct_rejection_rate": 1.0,
+      "ranking_population": "ordinary queries only; failed ordinary requests count as zero",
+      "requests": 15,
+      "successes": 15,
+      "errors": 0,
+      "error_rate": 0.0,
+      "wall_seconds": 33.56701740005519,
+      "completed_requests_per_second": 0.4468672274700026,
+      "successful_requests_per_second": 0.4468672274700026,
+      "success_latency_ms": {
+        "mean": 2237.569146665434,
+        "p50": 2338.1959000835195,
+        "p95": 3661.718350020238,
+        "p99": 4314.505030051804,
+        "max": 4477.701700059697
+      },
+      "all_attempt_latency_ms": {
+        "p50": 2338.1959000835195,
+        "p95": 3661.718350020238,
+        "p99": 4314.505030051804
+      },
+      "status_counts": {
+        "OK": 15
+      },
+      "strategy_used_counts": {
+        "hybrid": 15
+      },
+      "mode_counts": {
+        "generated": 12,
+        "empty": 3
+      },
+      "warning_counts": {
+        "CONTEXT_LIMIT": 13,
+        "NO_MATCHES": 3,
+        "FEWER_RESULTS": 5,
+        "NO_RELEVANT_MATCHES": 3
+      },
+      "degraded_requests": 0,
+      "invalid_filter_or_unknown_id_count": 0,
+      "duplicate_result_count": 0,
+      "over_limit_count": 0,
+      "mean_fill_rate": 0.6533333333333334,
+      "catalog_coverage": 0.020420921025213586,
+      "metrics_including_failed_requests_as_zero": {
+        "ndcg_at_k": 0.4843420311232087,
+        "map_at_k": 0.34815873015873017,
+        "precision_at_k": 0.39,
+        "recall_at_k": 0.336991341991342,
+        "mrr_at_k": 0.8333333333333334,
+        "hit_rate_at_k": 0.9
+      },
+      "phase": "quality",
+      "requested_strategy": "hybrid",
+      "concurrency": 1,
+      "retrieval_top_k_metrics": {
+        "ndcg_at_k": 0.3064072627520461,
+        "ap_at_k": 0.18174206349206348,
+        "precision_at_k": 0.26,
+        "recall_at_k": 0.22766233766233765,
+        "reciprocal_rank_at_k": 0.6166666666666667,
+        "hit_at_k": 0.8
+      }
+    }
+  ],
+  "limitations": [
+    "Draft incomplete relevance labels",
+    "No manual answer accuracy yet",
+    "CRR is a structural contract check",
+    "Automatic provider routing and caching affect cost and latency"
+  ]
+}
