@@ -1,5 +1,7 @@
 # RAG Movie Picker
 
+В ветке `ml_salarysense` отдельный локальный запуск открывает чат SalarySense на базе интерфейса Movie Picker. [Запуск SalarySense](salarysense_demo/README.md).
+
 Веб-приложение для подбора фильмов по текстовым пожеланиям. Гибридный поиск по собственному BM25 и плотным трансформерным эмбеддингам находит фильмы в **TMDB 5000 Movie Dataset**, а LLM выбирает подходящие и объясняет рекомендации на русском языке.
 
 ![Интерфейс Movie Picker](docs/images/frontend.png)

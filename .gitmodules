@@ -1,0 +1,4 @@
+[submodule "salarysense_demo/engine"]
+	path = salarysense_demo/engine
+	url = https://github.com/DemidovCyrill/SalarySense-.git
+	branch = backend-rag-bm25

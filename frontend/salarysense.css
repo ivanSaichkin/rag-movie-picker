@@ -1,0 +1,21 @@
+.knowledge-shell .welcome::before { display: none; }
+.knowledge-mode { align-self: center; flex: none; font-size: 13px; }
+.knowledge-messages { width: min(100%, 760px); margin-inline: auto; }
+.knowledge-messages .user-message { margin-inline: auto 0; }
+.knowledge-reply {
+  padding: clamp(12px, 2vw, 20px);
+  border: 1px solid var(--soft-rule);
+  border-radius: 15px;
+  background: var(--panel);
+  line-height: 1.55;
+  overflow-wrap: anywhere;
+}
+.knowledge-reply > p, .knowledge-source p { white-space: pre-wrap; }
+.knowledge-sources { margin-top: 12px; }
+.knowledge-source { padding: 8px 0; border-top: 1px solid var(--soft-rule); }
+.knowledge-source summary { cursor: pointer; }
+.knowledge-source p { margin-top: 8px; color: var(--muted); font-size: 14px; }
+
+@media (max-width: 720px) {
+  .knowledge-shell .sidebar-note { display: none; }
+}
